@@ -1,0 +1,12 @@
+# Required for a client-side router (React Router). Without this, visiting
+# or refreshing a route directly (e.g. admin.hobinh.com/orders) 404s on
+# Apache/LiteSpeed, since there's no real "/orders" file — fall back to
+# index.html and let the app's router handle the path.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
