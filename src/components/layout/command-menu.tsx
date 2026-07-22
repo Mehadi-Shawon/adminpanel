@@ -66,7 +66,7 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
             <CommandItem
               key={order.id}
               value={`${order.orderNumber} ${order.customerName}`}
-              onSelect={() => go(`/orders/${order.id}`)}
+              onSelect={() => go(`/orders?view=${order.id}`)}
             >
               {order.orderNumber} — {order.customerName}
             </CommandItem>

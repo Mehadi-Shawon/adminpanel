@@ -11,7 +11,8 @@ import {
   useRevenueSeries,
 } from "@/hooks/use-dashboard"
 import type { DashboardRange } from "@/lib/api/dashboard"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate, getDisplayName, getGreeting } from "@/lib/format"
+import { useAuth } from "@/components/auth-provider"
 import { StatCard } from "./components/stat-card"
 import { RevenueChart } from "./components/revenue-chart"
 import { OrdersStatusChart } from "./components/orders-status-chart"
@@ -21,6 +22,8 @@ import { RecentActivityFeed } from "./components/recent-activity-feed"
 const RANGE_OPTIONS: DashboardRange[] = [7, 30, 90]
 
 export function DashboardPage() {
+  const { userEmail } = useAuth()
+  const firstName = getDisplayName(userEmail ?? "").split(" ")[0]
   const [range, setRange] = useState<DashboardRange>(30)
   const stats = useDashboardStats(range)
   const revenue = useRevenueSeries(range)
@@ -33,8 +36,12 @@ export function DashboardPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">An overview of your store's performance.</p>
+          <h1 className="font-heading text-2xl font-semibold">
+            {getGreeting()}, {firstName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {formatDate(new Date(), "EEEE, MMMM d, yyyy")} — here's your store at a glance.
+          </p>
         </div>
         <div className="flex items-center gap-1 self-start rounded-lg border p-1">
           {RANGE_OPTIONS.map((option) => (

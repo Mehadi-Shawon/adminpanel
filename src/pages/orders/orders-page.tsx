@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Search, ShoppingCart } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,7 +11,7 @@ import {
 } from "@/components/ui/select"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton"
-import { useOrders } from "@/hooks/use-orders"
+import { useOrder, useOrders } from "@/hooks/use-orders"
 import type { Order, OrderStatus } from "@/types"
 import { getOrdersColumns } from "./components/orders-columns"
 import { OrderDetailsDialog } from "./components/order-details-dialog"
@@ -20,15 +21,35 @@ export function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | "all">("all")
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewId = searchParams.get("view") ?? undefined
 
   const orders = useOrders({
     search: search || undefined,
     status: status === "all" ? undefined : status,
   })
 
+  // Open the details dialog when arriving with ?view=<id> (from global search or dashboard links).
+  const viewedOrder = useOrder(viewId)
+  useEffect(() => {
+    if (viewId && viewedOrder.data) {
+      setViewingOrder(viewedOrder.data)
+      setDialogOpen(true)
+    }
+  }, [viewId, viewedOrder.data])
+
   function handleView(order: Order) {
     setViewingOrder(order)
     setDialogOpen(true)
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    setDialogOpen(open)
+    // Clear the deep-link param on close so re-selecting the same order re-opens it.
+    if (!open && viewId) {
+      searchParams.delete("view")
+      setSearchParams(searchParams, { replace: true })
+    }
   }
 
   return (
@@ -84,7 +105,7 @@ export function OrdersPage() {
         />
       )}
 
-      <OrderDetailsDialog order={viewingOrder} open={dialogOpen} onOpenChange={setDialogOpen} />
+      <OrderDetailsDialog order={viewingOrder} open={dialogOpen} onOpenChange={handleDialogOpenChange} />
     </div>
   )
 }

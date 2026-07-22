@@ -130,7 +130,7 @@ export function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full shadow-md shadow-black/10 transition-shadow hover:shadow-lg hover:shadow-black/15 disabled:opacity-100 dark:shadow-none"
+              className="h-auto w-full py-2.5 shadow-md shadow-black/10 transition-shadow hover:shadow-lg hover:shadow-black/15 disabled:opacity-100 dark:shadow-none"
               disabled={isPending}
             >
               {isPending && <Loader2 className="size-4 animate-spin" />}

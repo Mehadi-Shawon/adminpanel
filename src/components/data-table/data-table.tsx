@@ -43,6 +43,7 @@ export function DataTable<TData, TValue>({
     columns,
     state: { sorting },
     onSortingChange: setSorting,
+    initialState: { pagination: { pageSize: 20 } },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

@@ -37,16 +37,21 @@ export function getProductsColumns(onEdit: (product: Product) => void): ColumnDe
     cell: ({ row }) => <Badge variant="outline">{row.original.categories[0]?.name}</Badge>,
   },
   {
-    accessorKey: "price",
+    accessorKey: "regularPrice",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
     cell: ({ row }) => {
-      const { price, compareAtPrice } = row.original
+      const { regularPrice, salePrice, type } = row.original
+      if (type === "variable") {
+        return <span className="text-sm text-muted-foreground">Variable</span>
+      }
       return (
         <div className="flex items-center gap-2">
-          <span className="font-mono tabular-nums">{formatCurrency(price)}</span>
-          {compareAtPrice && (
+          <span className="font-mono tabular-nums">
+            {formatCurrency(salePrice ?? regularPrice)}
+          </span>
+          {salePrice !== undefined && (
             <span className="font-mono text-xs tabular-nums text-muted-foreground line-through">
-              {formatCurrency(compareAtPrice)}
+              {formatCurrency(regularPrice)}
             </span>
           )}
         </div>
@@ -65,18 +70,18 @@ export function getProductsColumns(onEdit: (product: Product) => void): ColumnDe
   },
   {
     id: "actions",
-    header: "",
+    header: "Edit",
     cell: ({ row }) => (
       <Button
-        variant="ghost"
-        size="icon-sm"
+        variant="secondary"
+        size="sm"
         onClick={(e) => {
           e.stopPropagation()
           onEdit(row.original)
         }}
       >
         <Pencil className="size-4" />
-        <span className="sr-only">Edit</span>
+        Edit
       </Button>
     ),
   },

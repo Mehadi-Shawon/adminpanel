@@ -7,6 +7,23 @@ const PROXY_URL = import.meta.env.VITE_WC_PROXY_URL as string | undefined
 
 type Query = Record<string, string | number | boolean | undefined>
 
+// WooCommerce/WordPress error responses are JSON like
+// { code: "product_invalid_sku", message: "Invalid or duplicated SKU.", data: { status: 400 } }.
+// Surface that human-readable `message` (tags stripped) so the UI can show
+// "Invalid or duplicated SKU." instead of a raw JSON blob. Falls back to the
+// raw body when the response isn't the expected shape.
+function extractErrorMessage(status: number, path: string, body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { message?: unknown }
+    if (typeof parsed.message === "string" && parsed.message.trim()) {
+      return parsed.message.replace(/<[^>]*>/g, "").trim()
+    }
+  } catch {
+    // Not JSON — fall through to the raw text.
+  }
+  return body.slice(0, 300) || `WooCommerce request failed (${status} ${path})`
+}
+
 function toSearchParams(path: string, query?: Query) {
   const params = new URLSearchParams({ path })
   if (query) {
@@ -25,7 +42,7 @@ async function request(path: string, init: RequestInit, query?: Query) {
   const res = await fetch(url, init)
   if (!res.ok) {
     const body = await res.text().catch(() => "")
-    throw new Error(`WooCommerce request failed (${res.status} ${path}): ${body.slice(0, 300)}`)
+    throw new Error(extractErrorMessage(res.status, path, body))
   }
   return res
 }
@@ -145,7 +162,7 @@ export async function wcUploadMedia(file: File): Promise<WcMedia> {
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
-    throw new Error(`Media upload failed (${res.status}): ${body.slice(0, 300)}`)
+    throw new Error(extractErrorMessage(res.status, "media", body))
   }
   return res.json()
 }

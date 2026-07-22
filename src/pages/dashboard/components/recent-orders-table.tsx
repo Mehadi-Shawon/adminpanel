@@ -39,7 +39,7 @@ export function RecentOrdersTable({ orders }: { orders: Order[] }) {
             {orders.map((order) => (
               <TableRow key={order.id}>
                 <TableCell>
-                  <Link to={`/orders/${order.id}`} className="font-medium hover:underline">
+                  <Link to={`/orders?view=${order.id}`} className="font-medium hover:underline">
                     {order.orderNumber}
                   </Link>
                 </TableCell>

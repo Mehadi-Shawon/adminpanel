@@ -4,6 +4,7 @@ import {
   getProduct,
   getProductCategories,
   getProducts,
+  getProductVariations,
   updateProduct,
   uploadMedia,
   type ProductInput,
@@ -23,6 +24,14 @@ export function useProduct(id: string | undefined) {
     queryKey: ["products", "detail", id],
     queryFn: () => getProduct(id as string),
     enabled: !!id,
+  })
+}
+
+export function useProductVariations(productId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["products", "variations", productId],
+    queryFn: () => getProductVariations(productId as string),
+    enabled: !!productId && enabled,
   })
 }
 

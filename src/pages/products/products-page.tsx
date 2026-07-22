@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Package, Plus, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -15,14 +15,12 @@ import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton"
 import { useProductCategories, useProducts } from "@/hooks/use-products"
 import type { Product, ProductStatus } from "@/types"
 import { getProductsColumns } from "./components/products-columns"
-import { ProductFormSheet } from "./components/product-form-sheet"
 
 export function ProductsPage() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState<string>("all")
   const [status, setStatus] = useState<ProductStatus | "all">("all")
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   const categories = useProductCategories()
   const products = useProducts({
@@ -32,8 +30,7 @@ export function ProductsPage() {
   })
 
   function handleEdit(product: Product) {
-    setEditingProduct(product)
-    setSheetOpen(true)
+    navigate(`/products/${product.id}/edit`)
   }
 
   return (
@@ -104,8 +101,6 @@ export function ProductsPage() {
           }
         />
       )}
-
-      <ProductFormSheet product={editingProduct} open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   )
 }

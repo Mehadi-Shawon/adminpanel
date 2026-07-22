@@ -139,7 +139,7 @@ export async function getRecentActivity(limit = 10): Promise<ActivityItem[]> {
     type: "order",
     title: `New order ${o.orderNumber} placed by ${o.customerName}`,
     timestamp: o.createdAt,
-    href: `/orders/${o.id}`,
+    href: `/orders?view=${o.id}`,
   }))
 
   const customerEvents: ActivityItem[] = customers.map((c) => ({

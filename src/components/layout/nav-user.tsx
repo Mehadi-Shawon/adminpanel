@@ -11,15 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useAuth } from "@/components/auth-provider"
-
-function getDisplayName(email: string) {
-  const localPart = email.split("@")[0] ?? email
-  return localPart
-    .split(/[._-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
+import { getDisplayName } from "@/lib/format"
 
 function getInitials(name: string) {
   const parts = name.split(" ").filter(Boolean)
@@ -43,7 +35,7 @@ export function NavUser() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg">
+            <SidebarMenuButton size="lg" className="bg-foreground/10">
               <Avatar size="sm">
                 <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
               </Avatar>
