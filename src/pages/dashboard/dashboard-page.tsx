@@ -63,7 +63,7 @@ export function DashboardPage() {
           : (
             <>
               <StatCard
-                title="Total revenue"
+                title="Total Revenue"
                 value={formatCurrency(stats.data.totalRevenue)}
                 changePct={stats.data.revenueChangePct}
                 icon={DollarSign}
@@ -81,7 +81,7 @@ export function DashboardPage() {
                 sparklineData={sparklines.data?.orders}
               />
               <StatCard
-                title="New customers"
+                title="New Customers"
                 value={stats.data.newCustomers.toLocaleString()}
                 changePct={stats.data.customersChangePct}
                 icon={Users}
@@ -90,7 +90,7 @@ export function DashboardPage() {
                 sparklineData={sparklines.data?.customers}
               />
               <StatCard
-                title="Avg order value"
+                title="Avg Order Value"
                 value={formatCurrency(stats.data.avgOrderValue)}
                 changePct={stats.data.avgOrderChangePct}
                 icon={TrendingUp}

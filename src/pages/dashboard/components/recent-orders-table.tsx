@@ -11,7 +11,7 @@ export function RecentOrdersTable({ orders }: { orders: Order[] }) {
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
-        <CardTitle>Recent orders</CardTitle>
+        <CardTitle>Recent Orders</CardTitle>
         <CardAction>
           <Button variant="outline" size="sm" asChild>
             <Link to="/orders">View all</Link>

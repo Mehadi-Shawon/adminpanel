@@ -27,6 +27,7 @@ export const productFormSchema = z
     shortDescription: z.string().optional(),
     categoryId: z.number(),
     subCategoryId: z.number().optional(),
+    brands: z.array(z.number()),
     type: z.enum(["simple", "variable"]),
     // Price/stock apply to simple products only; a variable product's
     // price/stock live on its variations, so these are optional here and

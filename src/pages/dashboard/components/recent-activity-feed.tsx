@@ -19,7 +19,7 @@ export function RecentActivityFeed({ items }: { items: ActivityItem[] }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Recent activity</CardTitle>
+          <CardTitle>Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
@@ -34,7 +34,7 @@ export function RecentActivityFeed({ items }: { items: ActivityItem[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent activity</CardTitle>
+        <CardTitle>Recent Activity</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="flex flex-col">

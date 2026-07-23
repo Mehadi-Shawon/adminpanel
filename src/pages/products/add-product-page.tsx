@@ -24,6 +24,7 @@ export function AddProductPage() {
       type: "simple",
       attributes: [],
       variations: {},
+      brands: [],
       images: [],
     },
   })
@@ -43,6 +44,7 @@ export function AddProductPage() {
         description: values.description,
         shortDescription: values.shortDescription,
         categories: selectedCategories,
+        brands: values.brands,
         type: values.type,
         regularPrice: values.regularPrice,
         salePrice: values.salePrice,
@@ -74,7 +76,7 @@ export function AddProductPage() {
             Back to products
           </Link>
         </Button>
-        <h1 className="mt-2 font-heading text-2xl font-semibold">Add product</h1>
+        <h1 className="mt-2 font-heading text-2xl font-semibold">Add Product</h1>
         <p className="text-sm text-muted-foreground">Create a new product in your store.</p>
       </div>
 

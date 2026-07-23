@@ -29,9 +29,9 @@ export function getDisplayName(email: string): string {
 
 export function getGreeting(date: Date = new Date()): string {
   const hour = date.getHours()
-  if (hour < 12) return "Good morning"
-  if (hour < 18) return "Good afternoon"
-  return "Good evening"
+  if (hour < 12) return "Good Morning"
+  if (hour < 18) return "Good Afternoon"
+  return "Good Evening"
 }
 
 // WooCommerce sometimes returns taxonomy names with HTML markup or entities

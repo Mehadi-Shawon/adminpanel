@@ -13,6 +13,31 @@ export interface Category {
   name: string
   slug: string
   parent?: number
+  // Number of products in this category (WooCommerce term `count`). Absent on
+  // the copy embedded in a product's own `categories` array.
+  count?: number
+}
+
+// WooCommerce's product brand taxonomy term (product_brand). Same shape as a
+// category term — brands can also be hierarchical, though we treat them flat.
+export interface Brand {
+  id: number
+  name: string
+  slug: string
+  count?: number
+}
+
+// A store-wide (global) product attribute — the taxonomy managed under
+// WooCommerce → Attributes (products/attributes endpoint), distinct from the
+// per-product custom attributes in ProductAttribute above. "select" attributes
+// have predefined terms; "text" attributes are free-form.
+export type AttributeType = "select" | "text"
+
+export interface GlobalAttribute {
+  id: number
+  name: string
+  slug: string
+  type: AttributeType
 }
 
 // Matches WooCommerce's real product image shape (an array, first = featured).
@@ -45,6 +70,7 @@ export interface Product {
   description: string
   shortDescription?: string
   categories: Category[]
+  brands: Brand[]
   type: ProductType
   // WooCommerce's real pricing model: `regularPrice` is the normal price and
   // `salePrice` (optional, always lower) is the discounted price. For a

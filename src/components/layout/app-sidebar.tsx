@@ -1,5 +1,19 @@
 import { useState } from "react"
-import { LayoutDashboard, Loader2, Package, PackagePlus, ShoppingCart, Users, Warehouse } from "lucide-react"
+import {
+  ChevronRight,
+  FolderTree,
+  LayoutDashboard,
+  Loader2,
+  Package,
+  PackagePlus,
+  ShoppingCart,
+  SlidersHorizontal,
+  Store,
+  Tags,
+  Ticket,
+  Users,
+  Warehouse,
+} from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   Sidebar,
@@ -11,10 +25,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 import { NavUser } from "./nav-user"
 
 const NAV_ITEMS = [
@@ -24,6 +42,13 @@ const NAV_ITEMS = [
   { title: "Add Product", url: "/products/new", icon: PackagePlus },
   { title: "Inventory", url: "/inventory", icon: Warehouse },
   { title: "Customers", url: "/customers", icon: Users },
+]
+
+const WOO_ITEMS = [
+  { title: "Categories", url: "/woocommerce/categories", icon: FolderTree },
+  { title: "Brands", url: "/woocommerce/brands", icon: Tags },
+  { title: "Attributes", url: "/woocommerce/attributes", icon: SlidersHorizontal },
+  { title: "Coupons", url: "/woocommerce/coupons", icon: Ticket },
 ]
 
 // Navigation here is instant (no route loaders — each page fetches its
@@ -36,6 +61,8 @@ export function AppSidebar() {
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const wooActive = location.pathname.startsWith("/woocommerce")
+  const [wooOpen, setWooOpen] = useState(wooActive)
 
   function handleNavClick(url: string) {
     setPendingUrl(url)
@@ -76,6 +103,37 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="WooCommerce"
+                  isActive={wooActive}
+                  onClick={() => setWooOpen((open) => !open)}
+                >
+                  <Store />
+                  <span>WooCommerce</span>
+                  <ChevronRight
+                    className={cn(
+                      "ml-auto transition-transform duration-200",
+                      wooOpen && "rotate-90"
+                    )}
+                  />
+                </SidebarMenuButton>
+                {wooOpen && (
+                  <SidebarMenuSub>
+                    {WOO_ITEMS.map((item) => (
+                      <SidebarMenuSubItem key={item.url}>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                          <NavLink to={item.url} onClick={() => isMobile && setOpenMobile(false)}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

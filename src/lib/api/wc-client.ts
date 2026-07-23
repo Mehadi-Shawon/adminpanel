@@ -121,6 +121,16 @@ export async function wcGet<T>(path: string, query?: Query): Promise<T> {
   return res.json()
 }
 
+// Fetches exactly one page (server-side pagination) and reports the totals from
+// WooCommerce's headers — unlike wcGetList, which pulls every page.
+export async function wcGetPage<T>(path: string, query?: Query): Promise<WcListResult<T>> {
+  const res = await request(path, { method: "GET" }, query)
+  const data = (await res.json()) as T[]
+  const total = Number(res.headers.get("X-WP-Total") ?? data.length)
+  const totalPages = Number(res.headers.get("X-WP-TotalPages") ?? 1)
+  return { data, total, totalPages }
+}
+
 export async function wcPost<T>(path: string, body: unknown): Promise<T> {
   const res = await request(path, {
     method: "POST",
@@ -136,6 +146,11 @@ export async function wcPut<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
+  return res.json()
+}
+
+export async function wcDelete<T>(path: string, query?: Query): Promise<T> {
+  const res = await request(path, { method: "DELETE" }, query)
   return res.json()
 }
 

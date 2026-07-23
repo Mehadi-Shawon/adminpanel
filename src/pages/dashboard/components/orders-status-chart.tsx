@@ -17,7 +17,7 @@ export function OrdersStatusChart({ data }: { data: StatusBreakdown[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Orders by status</CardTitle>
+        <CardTitle>Orders by Status</CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer config={STATUS_CONFIG} className="mx-auto aspect-square h-64">

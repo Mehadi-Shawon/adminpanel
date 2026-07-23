@@ -60,7 +60,10 @@ export function getProductsColumns(onEdit: (product: Product) => void): ColumnDe
   },
   {
     accessorKey: "stock",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Stock" />,
+    // WooCommerce can't sort products by stock, so this column isn't sortable
+    // under server-side pagination.
+    enableSorting: false,
+    header: "Stock",
     cell: ({ row }) => <StockIndicator stock={row.original.stock} />,
   },
   {

@@ -1,11 +1,15 @@
-import type { Category, Product, ProductImage, ProductStatus, ProductType } from "@/types"
+import type { Brand, Category, Product, ProductImage, ProductStatus, ProductType } from "@/types"
 import { stripHtml } from "@/lib/format"
-import { wcGet, wcGetList, wcPost, wcPut, wcUploadMedia } from "./wc-client"
+import { wcDelete, wcGet, wcGetList, wcGetPage, wcPost, wcPut, wcUploadMedia } from "./wc-client"
 
-// WooCommerce can return category names carrying HTML/entities; clean them for
-// display. We only ever send category ids back, so this never round-trips.
+// WooCommerce can return taxonomy names carrying HTML/entities; clean them for
+// display. We only ever send ids back, so this never round-trips.
 function mapCategory(c: Category): Category {
   return { ...c, name: stripHtml(c.name) }
+}
+
+function mapBrand(b: Brand): Brand {
+  return { id: b.id, name: stripHtml(b.name), slug: b.slug, count: b.count }
 }
 
 export interface ProductQuery {
@@ -37,6 +41,9 @@ export interface ProductInput {
   description: string
   shortDescription?: string
   categories: Category[]
+  // Brand ids. Omit to leave brands untouched (e.g. a stock-only update); pass
+  // an array (even empty, to clear) to set them.
+  brands?: number[]
   type: ProductType
   // Simple products only — a variable product's price/stock come from its
   // variations, so these are optional and ignored when type === "variable".
@@ -66,6 +73,7 @@ interface WcProduct {
   description: string
   short_description: string
   categories: Category[]
+  brands?: Brand[]
   images: ProductImage[]
   type: string
   attributes: WcProductAttribute[]
@@ -117,6 +125,7 @@ function mapProduct(wc: WcProduct): Product {
     description: wc.description,
     shortDescription: wc.short_description || undefined,
     categories: (wc.categories ?? []).map(mapCategory),
+    brands: (wc.brands ?? []).map(mapBrand),
     type: wc.type === "variable" ? "variable" : "simple",
     regularPrice: parseFloat(wc.regular_price) || 0,
     salePrice: wc.sale_price ? parseFloat(wc.sale_price) : undefined,
@@ -149,6 +158,7 @@ function toWcPayload(input: ProductInput) {
     description: input.description,
     short_description: input.shortDescription ?? "",
     categories: input.categories.map((c) => ({ id: c.id })),
+    ...(input.brands !== undefined ? { brands: input.brands.map((id) => ({ id })) } : {}),
     images: input.images.map((img) => ({ id: img.id })),
     type: input.type,
     status: input.status,
@@ -182,6 +192,43 @@ export async function getProductCategories(): Promise<Category[]> {
   return data.map(mapCategory)
 }
 
+export interface CategoryInput {
+  name: string
+  // 0 (or omitted) creates a top-level category; a term id creates a
+  // sub-category under that parent.
+  parent?: number
+}
+
+export async function createProductCategory(input: CategoryInput): Promise<Category> {
+  const wc = await wcPost<Category>("products/categories", {
+    name: input.name,
+    parent: input.parent ?? 0,
+  })
+  return mapCategory(wc)
+}
+
+// force=true is required — WooCommerce taxonomy terms have no trash, so a
+// delete must be permanent. Products in the category are not deleted; they
+// just lose the term.
+export async function deleteProductCategory(id: number): Promise<void> {
+  await wcDelete(`products/categories/${id}`, { force: true })
+}
+
+// Brands (product_brand taxonomy — WooCommerce core 9.6+ / WooCommerce Brands).
+export async function getProductBrands(): Promise<Brand[]> {
+  const { data } = await wcGetList<Brand>("products/brands", { orderby: "name", order: "asc" })
+  return data.map(mapBrand)
+}
+
+export async function createProductBrand(input: { name: string }): Promise<Brand> {
+  const wc = await wcPost<Brand>("products/brands", { name: input.name })
+  return mapBrand(wc)
+}
+
+export async function deleteProductBrand(id: number): Promise<void> {
+  await wcDelete(`products/brands/${id}`, { force: true })
+}
+
 export async function getProducts(params?: ProductQuery): Promise<Product[]> {
   const { data } = await wcGetList<WcProduct>("products", {
     search: params?.search,
@@ -189,6 +236,37 @@ export async function getProducts(params?: ProductQuery): Promise<Product[]> {
     status: params?.status,
   })
   return data.map(mapProduct)
+}
+
+// WooCommerce's supported product `orderby` values. Anything not here can't be
+// sorted server-side (e.g. stock), so those columns aren't made sortable.
+export type ProductOrderBy = "title" | "price" | "date"
+
+export interface ProductPageQuery extends ProductQuery {
+  page: number
+  perPage: number
+  orderby?: ProductOrderBy
+  order?: "asc" | "desc"
+}
+
+export interface ProductPage {
+  products: Product[]
+  total: number
+  totalPages: number
+}
+
+// Server-side paginated fetch — one page at a time instead of the whole catalog.
+export async function getProductsPage(params: ProductPageQuery): Promise<ProductPage> {
+  const { data, total, totalPages } = await wcGetPage<WcProduct>("products", {
+    search: params.search,
+    category: params.categoryId,
+    status: params.status,
+    page: params.page,
+    per_page: params.perPage,
+    orderby: params.orderby,
+    order: params.order,
+  })
+  return { products: data.map(mapProduct), total, totalPages }
 }
 
 export async function getProduct(id: string): Promise<Product | undefined> {

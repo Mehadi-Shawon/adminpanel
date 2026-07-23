@@ -4,7 +4,7 @@ import type { OrderStatus } from "@/types"
 const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
   pending: {
     label: "Pending",
-    className: "bg-[#2a78d6]/10 text-[#2a78d6] dark:bg-[#3987e5]/15 dark:text-[#3987e5]",
+    className: "bg-[#7c3aed]/10 text-[#7c3aed] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]",
   },
   processing: {
     label: "Processing",
@@ -12,7 +12,7 @@ const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
   },
   "on-hold": {
     label: "On Hold",
-    className: "bg-[#eda100]/10 text-[#eda100] dark:bg-[#c98500]/15 dark:text-[#c98500]",
+    className: "bg-[#4f46e5]/10 text-[#4f46e5] dark:bg-[#818cf8]/15 dark:text-[#818cf8]",
   },
   completed: {
     label: "Completed",
@@ -24,12 +24,30 @@ const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
   },
   refunded: {
     label: "Refunded",
-    className: "bg-[#4a3aa7]/10 text-[#4a3aa7] dark:bg-[#9085e9]/15 dark:text-[#9085e9]",
+    className: "bg-[#2a78d6]/10 text-[#2a78d6] dark:bg-[#3987e5]/15 dark:text-[#3987e5]",
   },
   failed: {
     label: "Failed",
-    className: "bg-[#1baf7a]/10 text-[#1baf7a] dark:bg-[#199e70]/15 dark:text-[#199e70]",
+    className: "bg-[#ca8a04]/10 text-[#ca8a04] dark:bg-[#eab308]/15 dark:text-[#eab308]",
   },
+}
+
+// WooCommerce's real order statuses, in workflow order, for status pickers.
+export const ORDER_STATUSES = Object.keys(STATUS_META) as OrderStatus[]
+
+export const ORDER_STATUS_LABELS = Object.fromEntries(
+  (Object.keys(STATUS_META) as OrderStatus[]).map((s) => [s, STATUS_META[s].label])
+) as Record<OrderStatus, string>
+
+// Solid accent color per status (matches the badge palette) for dots/indicators.
+export const ORDER_STATUS_COLOR: Record<OrderStatus, string> = {
+  pending: "#7c3aed",
+  processing: "#eb6834",
+  "on-hold": "#4f46e5",
+  completed: "#008300",
+  cancelled: "#e34948",
+  refunded: "#2a78d6",
+  failed: "#eab308",
 }
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {

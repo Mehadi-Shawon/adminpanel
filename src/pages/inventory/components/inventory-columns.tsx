@@ -119,7 +119,7 @@ export const inventoryColumns: ColumnDef<Product>[] = [
   },
   {
     id: "adjust",
-    header: "Adjust stock",
+    header: "Adjust Stock",
     cell: ({ row }) => <AdjustStockCell product={row.original} />,
   },
 ]

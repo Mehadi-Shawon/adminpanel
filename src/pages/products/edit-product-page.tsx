@@ -59,6 +59,7 @@ export function EditProductPage() {
       shortDescription: product.shortDescription,
       categoryId,
       subCategoryId,
+      brands: product.brands.map((b) => b.id),
       type: product.type,
       regularPrice: product.regularPrice,
       salePrice: product.salePrice,
@@ -102,6 +103,7 @@ export function EditProductPage() {
           description: values.description,
           shortDescription: values.shortDescription,
           categories: selectedCategories,
+          brands: values.brands,
           type: values.type,
           regularPrice: values.regularPrice,
           salePrice: values.salePrice,
@@ -134,7 +136,7 @@ export function EditProductPage() {
             Back to products
           </Link>
         </Button>
-        <h1 className="mt-2 font-heading text-2xl font-semibold">Edit product</h1>
+        <h1 className="mt-2 font-heading text-2xl font-semibold">Edit Product</h1>
         <p className="text-sm text-muted-foreground">
           {product ? `Update the details for ${product.name}.` : "Update your product's details."}
         </p>

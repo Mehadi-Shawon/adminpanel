@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { PRODUCT_STATUS_LABELS, PRODUCT_STATUSES } from "@/lib/product-taxonomy"
+import { useProductBrands } from "@/hooks/use-products"
+import { cn } from "@/lib/utils"
 import type { Category } from "@/types"
 import type { ProductFormValues } from "../product-schema"
 import { AttributeBuilder } from "./attribute-builder"
@@ -31,6 +33,7 @@ export function ProductFormFields({ categories }: ProductFormFieldsProps) {
     setValue,
     formState: { errors },
   } = useFormContext<ProductFormValues>()
+  const brands = useProductBrands()
 
   const productType = watch("type")
   const selectedCategoryId = watch("categoryId")
@@ -180,6 +183,55 @@ export function ProductFormFields({ categories }: ProductFormFieldsProps) {
           <FieldError errors={[errors.subCategoryId]} />
         </Field>
       </div>
+
+      <Field>
+        <FieldLabel>Brands</FieldLabel>
+        <Controller
+          control={control}
+          name="brands"
+          render={({ field }) => {
+            const selected = field.value ?? []
+            const options = brands.data ?? []
+            const toggle = (id: number) =>
+              field.onChange(
+                selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
+              )
+            if (brands.isPending) {
+              return <p className="text-sm text-muted-foreground">Loading brands…</p>
+            }
+            if (options.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground">
+                  No brands yet — add them under WooCommerce → Brands.
+                </p>
+              )
+            }
+            return (
+              <div className="flex flex-wrap gap-1.5">
+                {options.map((brand) => {
+                  const on = selected.includes(brand.id)
+                  return (
+                    <button
+                      key={brand.id}
+                      type="button"
+                      onClick={() => toggle(brand.id)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-sm transition-colors",
+                        on
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-input text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      {brand.name}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          }}
+        />
+      </Field>
 
       <Field>
         <FieldLabel>Product type</FieldLabel>

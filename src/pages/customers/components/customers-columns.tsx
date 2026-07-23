@@ -40,7 +40,7 @@ export const customersColumns: ColumnDef<Customer>[] = [
   },
   {
     accessorKey: "totalSpent",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Total spent" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Total Spent" />,
     cell: ({ row }) => (
       <span className="font-mono tabular-nums">{formatCurrency(row.original.totalSpent)}</span>
     ),
