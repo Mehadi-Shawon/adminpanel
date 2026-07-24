@@ -67,8 +67,10 @@ export async function buildInvoicePdf(order: Order): Promise<jsPDF> {
   y += 14
   doc.text(order.customerPhone, MARGIN_X, y)
   y += 14
+  doc.text(order.shippingAddress.line1, MARGIN_X, y)
+  y += 14
   doc.text(
-    `${order.shippingAddress.line1}, ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zip}`,
+    `${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zip}`,
     MARGIN_X,
     y
   )
@@ -160,7 +162,7 @@ export async function buildInvoicePdf(order: Order): Promise<jsPDF> {
     align: "center",
   })
   doc.setFontSize(8)
-  doc.text("hobinh.com  •  service@hobinh.com", PAGE_WIDTH / 2, PAGE_HEIGHT - 34, { align: "center" })
+  doc.text("www.hobinh.com  •  support@hobinh.com", PAGE_WIDTH / 2, PAGE_HEIGHT - 34, { align: "center" })
 
   return doc
 }

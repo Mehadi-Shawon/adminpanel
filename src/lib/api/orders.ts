@@ -1,4 +1,5 @@
 import type { Order, OrderItem, OrderStatus, ShippingAddress } from "@/types"
+import { stripHtml } from "@/lib/format"
 import { wcGet, wcGetList, wcPut } from "./wc-client"
 
 export interface OrderQuery {
@@ -30,10 +31,14 @@ interface WcOrder {
   }
   line_items: Array<{
     product_id: number
+    variation_id?: number
     name: string
     quantity: number
     price: number
     image?: { id: number; src: string }
+    // Variation attributes surface here as { display_key, display_value }
+    // pairs (e.g. Color/Red); internal meta keys start with "_".
+    meta_data?: Array<{ key: string; display_key?: string; display_value?: string }>
   }>
 }
 
@@ -41,13 +46,27 @@ function mapOrder(wc: WcOrder): Order {
   const total = parseFloat(wc.total) || 0
   const shipping = parseFloat(wc.shipping_total) || 0
 
-  const items: OrderItem[] = wc.line_items.map((item) => ({
-    productId: String(item.product_id),
-    productName: item.name,
-    imageUrl: item.image?.src ?? "",
-    quantity: item.quantity,
-    unitPrice: item.price,
-  }))
+  const items: OrderItem[] = wc.line_items.map((item) => {
+    // Build a readable variation label from the line item's attribute meta.
+    const attributes = (item.meta_data ?? [])
+      .filter(
+        (m) =>
+          m.display_key &&
+          m.display_value &&
+          !m.display_key.startsWith("_") &&
+          !String(m.key).startsWith("_")
+      )
+      .map((m) => stripHtml(String(m.display_value)))
+    return {
+      productId: String(item.product_id),
+      variationId: item.variation_id ? String(item.variation_id) : undefined,
+      variationLabel: attributes.length ? attributes.join(" / ") : undefined,
+      productName: item.name,
+      imageUrl: item.image?.src ?? "",
+      quantity: item.quantity,
+      unitPrice: item.price,
+    }
+  })
 
   const shippingAddress: ShippingAddress = {
     line1: wc.billing.address_1,

@@ -12,6 +12,10 @@ export type OrderStatus =
 
 export interface OrderItem {
   productId: string
+  // Present when the ordered item is a specific variation of a variable
+  // product; `variationLabel` is the human-readable combination (e.g. "Red / M").
+  variationId?: string
+  variationLabel?: string
   productName: string
   imageUrl: string
   quantity: number

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import {
   ChevronRight,
+  ClipboardList,
   FolderTree,
   LayoutDashboard,
   Loader2,
@@ -35,20 +36,25 @@ import {
 import { cn } from "@/lib/utils"
 import { NavUser } from "./nav-user"
 
+// Each item carries an accent `color` used to tint its icon only while active,
+// so the current tab pops with a splash of color against the neutral sidebar.
+const WOO_COLOR = "#0f4c3a"
+
 const NAV_ITEMS = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Orders", url: "/orders", icon: ShoppingCart },
-  { title: "Products", url: "/products", icon: Package, exact: true },
-  { title: "Add Product", url: "/products/new", icon: PackagePlus },
-  { title: "Inventory", url: "/inventory", icon: Warehouse },
-  { title: "Customers", url: "/customers", icon: Users },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "#2a78d6" },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, color: "#eb6834" },
+  { title: "Product Demand", url: "/product-demand", icon: ClipboardList, color: "#1baf7a" },
+  { title: "Products", url: "/products", icon: Package, exact: true, color: "#7c3aed" },
+  { title: "Add Product", url: "/products/new", icon: PackagePlus, color: "#16a34a" },
+  { title: "Inventory", url: "/inventory", icon: Warehouse, color: "#ca8a04" },
+  { title: "Customers", url: "/customers", icon: Users, color: "#db2777" },
 ]
 
 const WOO_ITEMS = [
-  { title: "Categories", url: "/woocommerce/categories", icon: FolderTree },
-  { title: "Brands", url: "/woocommerce/brands", icon: Tags },
-  { title: "Attributes", url: "/woocommerce/attributes", icon: SlidersHorizontal },
-  { title: "Coupons", url: "/woocommerce/coupons", icon: Ticket },
+  { title: "Categories", url: "/woocommerce/categories", icon: FolderTree, color: "#2a78d6" },
+  { title: "Brands", url: "/woocommerce/brands", icon: Tags, color: "#db2777" },
+  { title: "Attributes", url: "/woocommerce/attributes", icon: SlidersHorizontal, color: "#4f46e5" },
+  { title: "Coupons", url: "/woocommerce/coupons", icon: Ticket, color: "#e34948" },
 ]
 
 // Navigation here is instant (no route loaders — each page fetches its
@@ -96,7 +102,11 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                       <NavLink to={item.url} onClick={() => handleNavClick(item.url)}>
-                        {isPending ? <Loader2 className="animate-spin" /> : <item.icon />}
+                        {isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <item.icon style={isActive ? { color: item.color } : undefined} />
+                        )}
                         <span>{item.title}</span>
                       </NavLink>
                     </SidebarMenuButton>
@@ -110,7 +120,7 @@ export function AppSidebar() {
                   isActive={wooActive}
                   onClick={() => setWooOpen((open) => !open)}
                 >
-                  <Store />
+                  <Store style={wooActive ? { color: WOO_COLOR } : undefined} />
                   <span>WooCommerce</span>
                   <ChevronRight
                     className={cn(
@@ -121,16 +131,19 @@ export function AppSidebar() {
                 </SidebarMenuButton>
                 {wooOpen && (
                   <SidebarMenuSub>
-                    {WOO_ITEMS.map((item) => (
-                      <SidebarMenuSubItem key={item.url}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                          <NavLink to={item.url} onClick={() => isMobile && setOpenMobile(false)}>
-                            <item.icon />
-                            <span>{item.title}</span>
-                          </NavLink>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
+                    {WOO_ITEMS.map((item) => {
+                      const subActive = location.pathname === item.url
+                      return (
+                        <SidebarMenuSubItem key={item.url}>
+                          <SidebarMenuSubButton asChild isActive={subActive}>
+                            <NavLink to={item.url} onClick={() => isMobile && setOpenMobile(false)}>
+                              <item.icon style={subActive ? { color: item.color } : undefined} />
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )
+                    })}
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
