@@ -1,6 +1,6 @@
 import type { Order, OrderItem, OrderStatus, ShippingAddress } from "@/types"
 import { stripHtml } from "@/lib/format"
-import { wcGet, wcGetList, wcPut } from "./wc-client"
+import { wcGet, wcGetList, wcPost, wcPut } from "./wc-client"
 
 export interface OrderQuery {
   search?: string
@@ -115,5 +115,70 @@ export async function getOrder(id: string): Promise<Order | undefined> {
 
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
   const wc = await wcPut<WcOrder>(`orders/${id}`, { status })
+  return mapOrder(wc)
+}
+
+// One line for a manually-created order. `variationId` is set when a specific
+// variation of a variable product was chosen.
+export interface CustomOrderItemInput {
+  productId: number
+  variationId?: number
+  quantity: number
+}
+
+export interface CreateOrderInput {
+  firstName: string
+  lastName?: string
+  phone: string
+  // The freeform street address goes into address_1.
+  address: string
+  // WooCommerce has no "town" field, so town maps to address_2 (a real,
+  // non-lossy secondary address line) and city maps to billing.city.
+  town?: string
+  city?: string
+  email?: string
+  // Free order note (WooCommerce customer_note). The order source
+  // (Facebook/Instagram/WhatsApp) is appended so it also shows on the order.
+  note?: string
+  source?: string
+  status: OrderStatus
+  items: CustomOrderItemInput[]
+}
+
+// Creates a manual order (guest, Cash on Delivery). WooCommerce computes the
+// line/order totals itself from product_id + quantity — we don't send prices.
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const noteParts = [input.note?.trim(), input.source ? `Source: ${input.source}` : ""].filter(
+    Boolean
+  )
+  const wc = await wcPost<WcOrder>("orders", {
+    status: input.status,
+    customer_id: 0,
+    payment_method: "cod",
+    payment_method_title: "Cash on Delivery",
+    set_paid: false,
+    customer_note: noteParts.length ? noteParts.join("\n\n") : undefined,
+    billing: {
+      first_name: input.firstName,
+      last_name: input.lastName ?? "",
+      phone: input.phone,
+      email: input.email ?? "",
+      address_1: input.address,
+      address_2: input.town ?? "",
+      city: input.city ?? "",
+    },
+    shipping: {
+      first_name: input.firstName,
+      last_name: input.lastName ?? "",
+      address_1: input.address,
+      address_2: input.town ?? "",
+      city: input.city ?? "",
+    },
+    line_items: input.items.map((item) => ({
+      product_id: item.productId,
+      variation_id: item.variationId,
+      quantity: item.quantity,
+    })),
+  })
   return mapOrder(wc)
 }

@@ -5,6 +5,7 @@ import { LoginPage } from "@/pages/login-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
 import { OrdersPage } from "@/pages/orders/orders-page"
 import { ProductDemandPage } from "@/pages/product-demand/product-demand-page"
+import { CustomOrderPage } from "@/pages/custom-order/custom-order-page"
 import { ProductsPage } from "@/pages/products/products-page"
 import { AddProductPage } from "@/pages/products/add-product-page"
 import { EditProductPage } from "@/pages/products/edit-product-page"
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <DashboardPage /> },
           { path: "orders", element: <OrdersPage /> },
           { path: "product-demand", element: <ProductDemandPage /> },
+          { path: "custom-order", element: <CustomOrderPage /> },
           { path: "products", element: <ProductsPage /> },
           { path: "products/new", element: <AddProductPage /> },
           { path: "products/:productId/edit", element: <EditProductPage /> },

@@ -5,6 +5,7 @@ import {
   FolderTree,
   LayoutDashboard,
   Loader2,
+  MessagesSquare,
   Package,
   PackagePlus,
   ShoppingCart,
@@ -43,6 +44,7 @@ const WOO_COLOR = "#0f4c3a"
 const NAV_ITEMS = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "#2a78d6" },
   { title: "Orders", url: "/orders", icon: ShoppingCart, color: "#eb6834" },
+  { title: "Custom Order", url: "/custom-order", icon: MessagesSquare, color: "#0ea5e9" },
   { title: "Product Demand", url: "/product-demand", icon: ClipboardList, color: "#1baf7a" },
   { title: "Products", url: "/products", icon: Package, exact: true, color: "#7c3aed" },
   { title: "Add Product", url: "/products/new", icon: PackagePlus, color: "#16a34a" },
