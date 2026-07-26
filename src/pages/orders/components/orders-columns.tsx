@@ -25,15 +25,15 @@ import type { Order, OrderStatus } from "@/types"
 function DetailsCell({ order, onView }: { order: Order; onView: (order: Order) => void }) {
   return (
     <Button
-      variant="ghost"
-      size="icon-sm"
+      variant="outline"
+      size="sm"
       onClick={(e) => {
         e.stopPropagation()
         onView(order)
       }}
     >
       <Eye className="size-4" />
-      <span className="sr-only">View details</span>
+      Details
     </Button>
   )
 }

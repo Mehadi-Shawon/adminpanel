@@ -29,6 +29,7 @@
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
     --color-muted: var(--muted);
+    --color-row-hover: var(--row-hover);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
@@ -63,6 +64,10 @@
     --muted-foreground: oklch(0.556 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
+    /* Table row hover. Deliberately much weaker than --muted, which is what
+       ghost/outline buttons hover to — a button inside a hovered row has to
+       stay clearly readable on top of it. */
+    --row-hover: oklch(0.988 0 0);
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
@@ -102,6 +107,9 @@
     --muted-foreground: oklch(0.708 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
+    /* See the light-mode note: ghost buttons hover to muted/50 (~0.207) here,
+       so the row hover has to sit well below that. */
+    --row-hover: oklch(0.178 0 0);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);

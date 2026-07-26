@@ -1,13 +1,32 @@
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { advanceLabel, getAdvanceBreakdown } from "@/lib/order-advance"
 import type { Order } from "@/types"
 
-const ADVANCE_RATE = 0.1
 const PAGE_WIDTH = 595.28 // A4 in pt
 const PAGE_HEIGHT = 841.89
-const MARGIN_X = 40
+const MARGIN_X = 44
 const RIGHT_EDGE = PAGE_WIDTH - MARGIN_X
+const CONTENT_WIDTH = RIGHT_EDGE - MARGIN_X
+const FOOTER_TOP = PAGE_HEIGHT - 62
+
+type Rgb = [number, number, number]
+
+// Monochrome palette with one dark accent — the brand logo is a flat black
+// mark, and this keeps the invoice legible when printed in greyscale.
+const INK: Rgb = [17, 24, 39]
+const BODY: Rgb = [55, 65, 81]
+const MUTED: Rgb = [120, 128, 142]
+const RULE: Rgb = [226, 231, 238]
+const PANEL: Rgb = [248, 250, 252]
+const WHITE: Rgb = [255, 255, 255]
+
+const COMPANY = {
+  name: "Hobinh",
+  site: "www.hobinh.com",
+  email: "support@hobinh.com",
+}
 
 function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -29,140 +48,324 @@ function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width: numb
   })
 }
 
-export async function buildInvoicePdf(order: Order): Promise<jsPDF> {
-  const doc = new jsPDF({ unit: "pt", format: "a4" })
-  let y = 40
+// jsPDF's built-in helvetica is WinAnsi-encoded, so anything outside Latin-1
+// (currency symbols, typographic minus) renders as garbage. formatCurrency
+// already yields an ASCII "BDT 1,500"; this guards the rest.
+function ascii(value: string) {
+  return value.replace(/−/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+}
 
-  try {
-    const logo = await loadImageAsDataUrl("/hobinh-logo.png")
-    const logoWidth = 90
+function titleCase(value: string) {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+/** Draws a label/value pair stacked vertically, returns the next y. */
+function drawStackedRow(
+  doc: jsPDF,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  valueX: number
+) {
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...MUTED)
+  doc.text(label.toUpperCase(), x, y)
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.setTextColor(...INK)
+  doc.text(value, valueX, y, { align: "right" })
+  return y + 15
+}
+
+function drawHeader(doc: jsPDF, order: Order, logo: { dataUrl: string; width: number; height: number } | null) {
+  let y = 46
+
+  if (logo) {
+    const logoWidth = 118
     const logoHeight = (logo.height / logo.width) * logoWidth
-    doc.addImage(logo.dataUrl, "PNG", MARGIN_X, y, logoWidth, logoHeight)
-  } catch {
+    doc.addImage(logo.dataUrl, "PNG", MARGIN_X, y - 6, logoWidth, logoHeight)
+    y += logoHeight - 2
+  } else {
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(16)
-    doc.text("Hobinh", MARGIN_X, y + 20)
+    doc.setFontSize(24)
+    doc.setTextColor(...INK)
+    doc.text(COMPANY.name, MARGIN_X, y + 14)
+    y += 24
   }
 
+  // Right side: the word INVOICE, tracked out, over the identifying details.
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(18)
-  doc.text("INVOICE", RIGHT_EDGE, y + 12, { align: "right" })
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(10)
-  doc.text(`Order ${order.orderNumber}`, RIGHT_EDGE, y + 28, { align: "right" })
-  doc.text(formatDate(order.createdAt, "MMM d, yyyy"), RIGHT_EDGE, y + 42, { align: "right" })
-
-  y += 70
-  doc.setDrawColor(210)
-  doc.line(MARGIN_X, y, RIGHT_EDGE, y)
-
-  y += 24
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(10)
-  doc.text("Bill To", MARGIN_X, y)
+  doc.setFontSize(19)
+  doc.setTextColor(...INK)
+  doc.text("INVOICE", RIGHT_EDGE, 64, { align: "right", charSpace: 1.6 })
 
   doc.setFont("helvetica", "normal")
-  y += 14
-  doc.text(order.customerName, MARGIN_X, y)
-  y += 14
-  doc.text(order.customerPhone, MARGIN_X, y)
-  y += 14
-  doc.text(order.shippingAddress.line1, MARGIN_X, y)
-  y += 14
-  doc.text(
-    `${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zip}`,
-    MARGIN_X,
-    y
-  )
-  y += 14
-  doc.text(order.shippingAddress.country, MARGIN_X, y)
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text(`${order.orderNumber}  •  ${formatDate(order.createdAt, "MMM d, yyyy")}`, RIGHT_EDGE, 82, {
+    align: "right",
+  })
 
-  y += 26
+  const ruleY = Math.max(y + 18, 100)
+  doc.setFillColor(...INK)
+  doc.rect(MARGIN_X, ruleY, CONTENT_WIDTH, 2, "F")
+  return ruleY + 26
+}
+
+/** Bill To panel on the left, order summary panel on the right. */
+function drawPartyPanels(doc: jsPDF, order: Order, startY: number) {
+  const gap = 20
+  const colWidth = (CONTENT_WIDTH - gap) / 2
+  const leftX = MARGIN_X
+  const rightX = MARGIN_X + colWidth + gap
+
+  const fields = [
+    order.customerName,
+    order.customerPhone,
+    order.shippingAddress.line1,
+    [order.shippingAddress.city, order.shippingAddress.state, order.shippingAddress.zip]
+      .filter(Boolean)
+      .join(", "),
+    order.shippingAddress.country,
+  ]
+    .map((line) => (line ?? "").trim())
+    .filter(Boolean)
+
+  // Wrap up front so the panel is sized to the text it actually holds — a long
+  // street address would otherwise spill past the rounded rect.
+  const textWidth = colWidth - 28
+  const addressLines = fields.flatMap((line, index) => {
+    doc.setFont("helvetica", index === 0 ? "bold" : "normal")
+    doc.setFontSize(index === 0 ? 10 : 9)
+    const wrapped: string[] = doc.splitTextToSize(ascii(line), textWidth)
+    return wrapped.map((text) => ({ text, emphasis: index === 0 }))
+  })
+
+  const details: Array<[string, string]> = [
+    ["Invoice No.", order.orderNumber.replace("#", "")],
+    ["Order Date", formatDate(order.createdAt, "MMM d, yyyy")],
+    ["Status", titleCase(order.status)],
+  ]
+
+  const rows = Math.max(addressLines.length, details.length)
+  const panelHeight = 30 + rows * 15 + 6
+
+  doc.setFillColor(...PANEL)
+  doc.roundedRect(leftX, startY, colWidth, panelHeight, 5, 5, "F")
+  doc.roundedRect(rightX, startY, colWidth, panelHeight, 5, 5, "F")
+
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(11)
-  doc.text("Items", MARGIN_X, y)
-  y += 8
+  doc.setFontSize(8)
+  doc.setTextColor(...MUTED)
+  doc.text("BILL TO", leftX + 14, startY + 20, { charSpace: 0.8 })
+  doc.text("ORDER DETAILS", rightX + 14, startY + 20, { charSpace: 0.8 })
 
-  const tableWidth = RIGHT_EDGE - MARGIN_X
+  let ly = startY + 38
+  addressLines.forEach((line) => {
+    doc.setFont("helvetica", line.emphasis ? "bold" : "normal")
+    doc.setFontSize(line.emphasis ? 10 : 9)
+    doc.setTextColor(...(line.emphasis ? INK : BODY))
+    doc.text(line.text, leftX + 14, ly)
+    ly += 15
+  })
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN_X, right: MARGIN_X },
-    tableWidth,
-    head: [["Product", "Qty", "Unit price", "Amount"]],
-    body: order.items.map((item) => [
-      item.productName,
+  let ry = startY + 38
+  details.forEach(([label, value]) => {
+    ry = drawStackedRow(doc, label, ascii(value), rightX + 14, ry, rightX + colWidth - 14)
+  })
+
+  return startY + panelHeight + 26
+}
+
+function drawItemsTable(doc: jsPDF, order: Order, startY: number) {
+  const qtyW = 44
+  const priceW = 92
+  const amountW = 96
+  const productW = CONTENT_WIDTH - qtyW - priceW - amountW
+
+  // Variation labels are emitted as their own muted row beneath the product so
+  // the product name keeps its weight; `isVariantRow` marks them for styling
+  // and tells the group-separator hook not to draw a rule yet.
+  const body: Array<Array<string | { content: string; styles: Record<string, unknown> }>> = []
+  const variantRowIndexes = new Set<number>()
+
+  order.items.forEach((item) => {
+    body.push([
+      ascii(item.productName),
       String(item.quantity),
       formatCurrency(item.unitPrice),
       formatCurrency(item.quantity * item.unitPrice),
-    ]),
-    styles: { fontSize: 9, cellPadding: 6 },
-    headStyles: { fillColor: [237, 237, 240], textColor: [40, 40, 40], fontStyle: "bold" },
+    ])
+    if (item.variationLabel) {
+      variantRowIndexes.add(body.length)
+      body.push([
+        {
+          content: ascii(item.variationLabel),
+          styles: {
+            fontSize: 8,
+            textColor: MUTED,
+            cellPadding: { top: 0, right: 10, bottom: 9, left: 10 },
+          },
+        },
+        "",
+        "",
+        "",
+      ])
+    }
+  })
+
+  autoTable(doc, {
+    startY,
+    theme: "plain",
+    margin: { left: MARGIN_X, right: MARGIN_X, top: 56, bottom: 80 },
+    tableWidth: CONTENT_WIDTH,
+    head: [["Product", "Qty", "Unit Price", "Amount"]],
+    body,
+    styles: {
+      font: "helvetica",
+      fontSize: 9.5,
+      textColor: BODY,
+      cellPadding: { top: 9, right: 10, bottom: 9, left: 10 },
+      valign: "middle",
+      overflow: "linebreak",
+    },
+    headStyles: {
+      fillColor: INK,
+      textColor: WHITE,
+      fontStyle: "bold",
+      fontSize: 8.5,
+      cellPadding: { top: 9, right: 10, bottom: 9, left: 10 },
+    },
     columnStyles: {
-      0: { cellWidth: tableWidth - 40 - 90 - 95, halign: "left" },
-      1: { cellWidth: 40, halign: "right" },
-      2: { cellWidth: 95, halign: "right" },
-      3: { cellWidth: 90, halign: "right" },
+      0: { cellWidth: productW, halign: "left", textColor: INK, fontStyle: "bold" },
+      1: { cellWidth: qtyW, halign: "right" },
+      2: { cellWidth: priceW, halign: "right" },
+      3: { cellWidth: amountW, halign: "right", textColor: INK, fontStyle: "bold" },
+    },
+    // Hairline under each item, skipped between a product and its variation so
+    // the pair reads as one entry.
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 3) return
+      if (variantRowIndexes.has(data.row.index + 1)) return
+      const lineY = data.cell.y + data.cell.height
+      doc.setDrawColor(...RULE)
+      doc.setLineWidth(0.5)
+      doc.line(MARGIN_X, lineY, RIGHT_EDGE, lineY)
     },
   })
 
-  const { finalY } = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-  y = finalY + 28
+  return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
+}
 
-  const advance = Math.round(order.total * ADVANCE_RATE)
-  const due = order.total - advance
-  const labelX = RIGHT_EDGE - 200
+function drawTotals(doc: jsPDF, order: Order, startY: number) {
+  const blockWidth = 250
+  const blockX = RIGHT_EDGE - blockWidth
+  const labelX = blockX
+  const breakdown = getAdvanceBreakdown(order)
 
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(10)
-  doc.text("Subtotal", labelX, y)
-  doc.text(formatCurrency(order.subtotal), RIGHT_EDGE, y, { align: "right" })
-  y += 16
-  doc.text("Shipping", labelX, y)
-  doc.text(order.shipping === 0 ? "Free" : formatCurrency(order.shipping), RIGHT_EDGE, y, { align: "right" })
+  // `strong` marks the gross order total, which sits above the advance
+  // deduction and reads as a subtotal for the block.
+  const rows: Array<{ label: string; value: string; strong?: boolean; rule?: boolean }> = [
+    { label: "Subtotal", value: formatCurrency(order.subtotal) },
+    { label: "Shipping", value: order.shipping === 0 ? "Free" : formatCurrency(order.shipping) },
+    { label: "Order total", value: formatCurrency(breakdown.orderValue), strong: true, rule: true },
+    { label: advanceLabel(breakdown), value: `- ${formatCurrency(breakdown.advance)}` },
+  ]
 
-  y += 10
-  doc.setDrawColor(210)
-  doc.line(labelX, y, RIGHT_EDGE, y)
-  y += 16
+  const bandHeight = 36
+  const blockHeight = rows.length * 17 + 26 + bandHeight
 
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(11)
-  doc.text("Total", labelX, y)
-  doc.text(formatCurrency(order.total), RIGHT_EDGE, y, { align: "right" })
+  // Keep the whole totals block together rather than letting it split.
+  let y = startY + 28
+  if (y + blockHeight > FOOTER_TOP - 20) {
+    doc.addPage()
+    y = 76
+  }
 
-  y += 22
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(10)
-  doc.text("Advance paid (10%)", labelX, y)
-  doc.text(formatCurrency(advance), RIGHT_EDGE, y, { align: "right" })
-  y += 16
-  doc.setFont("helvetica", "bold")
-  doc.text("Due on delivery", labelX, y)
-  doc.text(formatCurrency(due), RIGHT_EDGE, y, { align: "right" })
-
-  y += 26
-  const noteText = `Note: A 10% advance payment (${formatCurrency(advance)}) is required to confirm this order. The remaining ${formatCurrency(due)} is due on delivery.`
-  doc.setFont("helvetica", "italic")
-  doc.setFontSize(9)
-  const noteLines = doc.splitTextToSize(noteText, RIGHT_EDGE - MARGIN_X - 20)
-  const noteBoxHeight = noteLines.length * 12 + 16
-
-  doc.setFillColor(247, 247, 240)
-  doc.roundedRect(MARGIN_X, y, RIGHT_EDGE - MARGIN_X, noteBoxHeight, 4, 4, "F")
-  doc.setTextColor(90)
-  doc.text(noteLines, MARGIN_X + 10, y + 16)
-
-  doc.setDrawColor(230)
-  doc.line(MARGIN_X, PAGE_HEIGHT - 66, RIGHT_EDGE, PAGE_HEIGHT - 66)
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9)
-  doc.setTextColor(120)
-  doc.text("Thank you for shopping with Hobinh — Your Trusted Place!", PAGE_WIDTH / 2, PAGE_HEIGHT - 48, {
-    align: "center",
+  rows.forEach((row) => {
+    if (row.rule) {
+      y -= 4
+      doc.setDrawColor(...RULE)
+      doc.setLineWidth(0.5)
+      doc.line(blockX, y, RIGHT_EDGE, y)
+      y += 14
+    }
+    doc.setFontSize(row.strong ? 10 : 9.5)
+    doc.setFont("helvetica", row.strong ? "bold" : "normal")
+    doc.setTextColor(...(row.strong ? INK : MUTED))
+    doc.text(row.label, labelX, y)
+    doc.setTextColor(...(row.strong ? INK : BODY))
+    doc.text(ascii(row.value), RIGHT_EDGE, y, { align: "right" })
+    y += 17
   })
-  doc.setFontSize(8)
-  doc.text("www.hobinh.com  •  support@hobinh.com", PAGE_WIDTH / 2, PAGE_HEIGHT - 34, { align: "center" })
+
+  y += 2
+  doc.setDrawColor(...RULE)
+  doc.setLineWidth(0.5)
+  doc.line(blockX, y, RIGHT_EDGE, y)
+  y += 12
+
+  doc.setFillColor(...INK)
+  doc.roundedRect(blockX, y, blockWidth, bandHeight, 5, 5, "F")
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...WHITE)
+  doc.text("DUE ON DELIVERY", blockX + 14, y + 22, { charSpace: 0.6 })
+  doc.setFontSize(13)
+  doc.text(ascii(formatCurrency(breakdown.due)), RIGHT_EDGE - 14, y + 23, { align: "right" })
+
+  return y + bandHeight
+}
+
+function drawFooters(doc: jsPDF) {
+  const pageCount = doc.getNumberOfPages()
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page)
+
+    doc.setDrawColor(...RULE)
+    doc.setLineWidth(0.5)
+    doc.line(MARGIN_X, FOOTER_TOP, RIGHT_EDGE, FOOTER_TOP)
+
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8.5)
+    doc.setTextColor(...INK)
+    doc.text(`Thank you for shopping with ${COMPANY.name}`, MARGIN_X, FOOTER_TOP + 18)
+
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    doc.setTextColor(...MUTED)
+    doc.text(`${COMPANY.site}  •  ${COMPANY.email}`, MARGIN_X, FOOTER_TOP + 32)
+
+    doc.text(`Page ${page} of ${pageCount}`, RIGHT_EDGE, FOOTER_TOP + 32, { align: "right" })
+  }
+}
+
+export async function buildInvoicePdf(order: Order): Promise<jsPDF> {
+  const doc = new jsPDF({ unit: "pt", format: "a4" })
+  doc.setProperties({
+    title: `Invoice ${order.orderNumber} — ${COMPANY.name}`,
+    subject: `Invoice for order ${order.orderNumber}`,
+    author: COMPANY.name,
+  })
+
+  let logo: { dataUrl: string; width: number; height: number } | null = null
+  try {
+    logo = await loadImageAsDataUrl("/hobinh-logo.png")
+  } catch {
+    logo = null
+  }
+
+  const afterHeader = drawHeader(doc, order, logo)
+  const afterPanels = drawPartyPanels(doc, order, afterHeader)
+  const afterTable = drawItemsTable(doc, order, afterPanels)
+  drawTotals(doc, order, afterTable)
+  drawFooters(doc)
 
   return doc
 }

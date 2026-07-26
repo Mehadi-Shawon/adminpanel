@@ -15,6 +15,7 @@ import {
   Sparkles,
   Trash2,
   User,
+  Wallet,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -29,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useCreateOrder } from "@/hooks/use-orders"
 import { parseOrderText } from "@/lib/parse-order-text"
 import { formatCurrency } from "@/lib/format"
@@ -76,12 +77,22 @@ export function CustomOrderPage() {
   const [email, setEmail] = useState("")
   const [note, setNote] = useState("")
   const [source, setSource] = useState("Facebook")
+  const [advance, setAdvance] = useState("")
   const [items, setItems] = useState<LineDraft[]>([])
   const [step, setStep] = useState<"form" | "preview">("form")
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  // Kept as a string so the input can be empty; anything unparseable is 0.
+  const advanceAmount = Math.max(0, Number.parseFloat(advance) || 0)
+  // WooCommerce would happily create a negative-total order, so block it here.
+  const advanceTooLarge = advanceAmount > subtotal
+  const dueOnDelivery = subtotal - advanceAmount
   const canPreview =
-    name.trim() !== "" && phone.trim() !== "" && address.trim() !== "" && items.length > 0
+    name.trim() !== "" &&
+    phone.trim() !== "" &&
+    address.trim() !== "" &&
+    items.length > 0 &&
+    !advanceTooLarge
 
   function handleExtract() {
     const parsed = parseOrderText(rawText)
@@ -121,6 +132,16 @@ export function CustomOrderPage() {
     setItems((prev) => prev.filter((i) => i.key !== key))
   }
 
+  // Lets the picker show what's already in the draft. Without a variationId
+  // this sums every variation, which is what a variable product's row wants.
+  function getQuantity(productId: number, variationId?: number) {
+    return items
+      .filter(
+        (i) => i.productId === productId && (variationId === undefined || i.variationId === variationId)
+      )
+      .reduce((sum, i) => sum + i.quantity, 0)
+  }
+
   function handlePlace() {
     const trimmedName = name.trim()
     const [firstName, ...rest] = trimmedName.split(/\s+/)
@@ -135,6 +156,7 @@ export function CustomOrderPage() {
         email: email.trim() || undefined,
         note: note.trim() || undefined,
         source: source || undefined,
+        advanceAmount: advanceAmount || undefined,
         status: "processing",
         items: items.map((i) => ({
           productId: i.productId,
@@ -288,7 +310,7 @@ export function CustomOrderPage() {
               <CardTitle className="text-base">3 · Products</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <ProductPicker onAdd={addItem} />
+              <ProductPicker onAdd={addItem} getQuantity={getQuantity} />
 
               {items.length > 0 && (
                 <div className="flex flex-col gap-1">
@@ -348,8 +370,49 @@ export function CustomOrderPage() {
                     <span>Subtotal (est.)</span>
                     <span className="font-mono tabular-nums">{formatCurrency(subtotal)}</span>
                   </div>
+                  {advanceAmount > 0 && !advanceTooLarge && (
+                    <>
+                      <div className="flex items-center justify-between pr-9 text-sm text-muted-foreground">
+                        <span>Advance paid</span>
+                        <span className="font-mono tabular-nums">
+                          −{formatCurrency(advanceAmount)}
+                        </span>
+                      </div>
+                      <Separator className="my-1" />
+                      <div className="flex items-center justify-between pr-9 text-sm font-semibold">
+                        <span>Due on delivery</span>
+                        <span className="font-mono tabular-nums">
+                          {formatCurrency(dueOnDelivery)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
+
+              <Separator />
+              <Field>
+                <FieldTitle htmlFor="co-advance" icon={Wallet}>
+                  Advance paid (optional)
+                </FieldTitle>
+                <Input
+                  id="co-advance"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  value={advance}
+                  onChange={(e) => setAdvance(e.target.value)}
+                  placeholder="0"
+                  aria-invalid={advanceTooLarge}
+                  className="sm:max-w-56"
+                />
+                <FieldDescription className={advanceTooLarge ? "text-destructive" : undefined}>
+                  {advanceTooLarge
+                    ? `Can't be more than the subtotal (${formatCurrency(subtotal)}).`
+                    : "Amount already received (bKash, Nagad, bank). Subtracted from the order — the rest is collected on delivery."}
+                </FieldDescription>
+              </Field>
             </CardContent>
           </Card>
 
@@ -399,9 +462,20 @@ export function CustomOrderPage() {
                 </div>
               ))}
               <Separator className="my-1.5" />
-              <div className="flex items-center justify-between text-sm font-semibold">
-                <span>Total (est.)</span>
+              <div className="flex items-center justify-between text-sm">
+                <span>Subtotal (est.)</span>
                 <span className="font-mono tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+              {advanceAmount > 0 && (
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Advance paid</span>
+                  <span className="font-mono tabular-nums">−{formatCurrency(advanceAmount)}</span>
+                </div>
+              )}
+              <Separator className="my-1.5" />
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>{advanceAmount > 0 ? "Due on delivery" : "Total (est.)"}</span>
+                <span className="font-mono tabular-nums">{formatCurrency(dueOnDelivery)}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Final total is calculated by WooCommerce. Created as Processing · Cash on Delivery.

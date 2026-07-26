@@ -66,7 +66,6 @@ export function OrdersPage() {
           columns={getOrdersColumns(handleView)}
           data={orders.data ?? []}
           initialSorting={[{ id: "createdAt", desc: true }]}
-          onRowClick={handleView}
           emptyMessage="No orders match your filters."
           toolbar={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
-import { useAuth } from "@/components/auth-provider"
+import { ROLE_LABELS, useAuth } from "@/components/auth-provider"
 import { getDisplayName } from "@/lib/format"
 
 function getInitials(name: string) {
@@ -20,10 +20,11 @@ function getInitials(name: string) {
 }
 
 export function NavUser() {
-  const { logout, userEmail } = useAuth()
+  const { logout, userEmail, userName, role } = useAuth()
   const navigate = useNavigate()
   const email = userEmail ?? ""
-  const displayName = email ? getDisplayName(email) : "Admin"
+  const displayName = userName ?? (email ? getDisplayName(email) : "Admin")
+  const roleLabel = role ? ROLE_LABELS[role] : "Admin"
 
   function handleLogout() {
     logout()
@@ -47,7 +48,7 @@ export function NavUser() {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Admin</DropdownMenuLabel>
+            <DropdownMenuLabel>{roleLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User /> Profile

@@ -39,6 +39,9 @@ export interface Order {
   items: OrderItem[]
   subtotal: number
   shipping: number
+  // Money already collected up front, recorded as a negative fee line. Already
+  // deducted from `total`, so `subtotal + shipping - advancePaid === total`.
+  advancePaid: number
   total: number
   status: OrderStatus
   shippingAddress: ShippingAddress

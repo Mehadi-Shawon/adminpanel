@@ -8,9 +8,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { OrderStatusBadge } from "@/components/order-status-badge"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { advanceLabel, getAdvanceBreakdown } from "@/lib/order-advance"
 import type { Order } from "@/types"
-
-const ADVANCE_RATE = 0.1
 
 interface OrderDetailsDialogProps {
   order: Order | null
@@ -82,25 +81,30 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                   {order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}
                 </span>
               </div>
-              <div className="flex justify-between text-sm font-medium">
-                <span>Total</span>
-                <span className="font-mono tabular-nums">{formatCurrency(order.total)}</span>
-              </div>
-
-              <Separator className="my-1" />
-
               {(() => {
-                const advance = Math.round(order.total * ADVANCE_RATE)
-                const due = order.total - advance
+                const breakdown = getAdvanceBreakdown(order)
                 return (
                   <>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Advance paid (10%)</span>
-                      <span className="font-mono tabular-nums">{formatCurrency(advance)}</span>
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Order total</span>
+                      <span className="font-mono tabular-nums">
+                        {formatCurrency(breakdown.orderValue)}
+                      </span>
                     </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>{advanceLabel(breakdown)}</span>
+                      <span className="font-mono tabular-nums">
+                        −{formatCurrency(breakdown.advance)}
+                      </span>
+                    </div>
+
+                    <Separator className="my-1" />
+
                     <div className="flex justify-between text-sm font-medium">
                       <span>Due on delivery</span>
-                      <span className="font-mono tabular-nums">{formatCurrency(due)}</span>
+                      <span className="font-mono tabular-nums">
+                        {formatCurrency(breakdown.due)}
+                      </span>
                     </div>
                   </>
                 )

@@ -40,11 +40,18 @@ interface WcOrder {
     // pairs (e.g. Color/Red); internal meta keys start with "_".
     meta_data?: Array<{ key: string; display_key?: string; display_value?: string }>
   }>
+  fee_lines?: Array<{ name: string; total: string }>
 }
 
 function mapOrder(wc: WcOrder): Order {
   const total = parseFloat(wc.total) || 0
   const shipping = parseFloat(wc.shipping_total) || 0
+
+  // A negative fee line is money already taken off the order — see the
+  // "Advance paid" line createOrder writes. WooCommerce has already folded it
+  // into `total`, so add it back to recover the real goods subtotal.
+  const feeTotal = (wc.fee_lines ?? []).reduce((sum, fee) => sum + (parseFloat(fee.total) || 0), 0)
+  const advancePaid = feeTotal < 0 ? -feeTotal : 0
 
   const items: OrderItem[] = wc.line_items.map((item) => {
     // Build a readable variation label from the line item's attribute meta.
@@ -83,8 +90,9 @@ function mapOrder(wc: WcOrder): Order {
     customerName: `${wc.billing.first_name} ${wc.billing.last_name}`.trim(),
     customerPhone: wc.billing.phone,
     items,
-    subtotal: total - shipping,
+    subtotal: total - shipping + advancePaid,
     shipping,
+    advancePaid,
     total,
     status: wc.status as OrderStatus,
     shippingAddress,
@@ -141,6 +149,10 @@ export interface CreateOrderInput {
   // (Facebook/Instagram/WhatsApp) is appended so it also shows on the order.
   note?: string
   source?: string
+  // Amount the customer already paid up front (bKash/Nagad/bank). Sent as a
+  // negative fee line so WooCommerce subtracts it and the order total becomes
+  // what the courier still has to collect on delivery.
+  advanceAmount?: number
   status: OrderStatus
   items: CustomOrderItemInput[]
 }
@@ -148,6 +160,7 @@ export interface CreateOrderInput {
 // Creates a manual order (guest, Cash on Delivery). WooCommerce computes the
 // line/order totals itself from product_id + quantity — we don't send prices.
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const advance = input.advanceAmount && input.advanceAmount > 0 ? input.advanceAmount : 0
   const noteParts = [input.note?.trim(), input.source ? `Source: ${input.source}` : ""].filter(
     Boolean
   )
@@ -179,6 +192,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       variation_id: item.variationId,
       quantity: item.quantity,
     })),
+    // A fee line with a negative total is how WooCommerce records money already
+    // taken off an order. tax_status "none" keeps it out of tax calculations —
+    // it's a payment, not a discount on the goods.
+    fee_lines: advance
+      ? [{ name: "Advance paid", total: String(-advance), tax_status: "none" }]
+      : [],
   })
   return mapOrder(wc)
 }
