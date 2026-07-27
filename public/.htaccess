@@ -1,3 +1,11 @@
+# Apache/LiteSpeed often don't recognise the .webmanifest extension and serve
+# it as text/plain, which some browsers refuse to parse — the app then silently
+# isn't installable. The SPA fallback below already leaves real files alone
+# (RewriteCond !-f), so the manifest is served directly.
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+</IfModule>
+
 # Required for a client-side router (React Router). Without this, visiting
 # or refreshing a route directly (e.g. admin.hobinh.com/orders) 404s on
 # Apache/LiteSpeed, since there's no real "/orders" file — fall back to

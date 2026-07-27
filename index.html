@@ -2,9 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Panel</title>
+
+    <title>Hobinh Admin</title>
+    <meta name="description" content="Store administration for Hobinh — orders, products, inventory and customers." />
+    <!-- Admin tooling must never be indexed. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+    <!-- Installable web app. iOS ignores most of the manifest, so the apple-*
+         tags below repeat what it needs: without them, "Add to Home Screen"
+         yields a Safari bookmark (address bar visible) whose icon is a
+         screenshot of the page rather than the logo. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Hobinh Admin" />
+
+    <!-- Tints the status bar area; tracks the theme the panel is actually in. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
   </head>
   <body>
     <div id="root"></div>
