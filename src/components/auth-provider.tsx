@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react"
 
-export type UserRole = "admin" | "manager"
+export type UserRole = "admin"
 
 interface Account {
   email: string
@@ -19,17 +19,10 @@ const ACCOUNTS: Account[] = [
     name: "Admin",
     role: "admin",
   },
-  {
-    email: "manager@hobinh.com",
-    password: "hobinh.jui.2026",
-    name: "Jui",
-    role: "manager",
-  },
 ]
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrator",
-  manager: "Manager",
 }
 
 interface AuthContextValue {
@@ -52,7 +45,7 @@ function findAccount(email: string | null) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(
+  const [hasSession, setHasSession] = useState(
     () => localStorage.getItem(STORAGE_KEY) === "true"
   )
   const [userEmail, setUserEmail] = useState<string | null>(() =>
@@ -64,6 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // editing an account here can't leave a stale value in localStorage.
   const account = findAccount(userEmail)
 
+  // The stored flag alone isn't enough: removing an account from ACCOUNTS has
+  // to revoke anyone already signed in as it, whose browser still holds
+  // auth=true. Requiring a matching account means deleting one logs it out.
+  const isAuthenticated = hasSession && account !== null
+
   function login(email: string, password: string) {
     const normalized = email.trim().toLowerCase()
     const match = ACCOUNTS.find((a) => a.email === normalized && a.password === password)
@@ -71,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem(STORAGE_KEY, "true")
     localStorage.setItem(EMAIL_STORAGE_KEY, match.email)
-    setIsAuthenticated(true)
+    setHasSession(true)
     setUserEmail(match.email)
     return true
   }
@@ -79,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(EMAIL_STORAGE_KEY)
-    setIsAuthenticated(false)
+    setHasSession(false)
     setUserEmail(null)
   }
 
