@@ -115,7 +115,7 @@ export const inventoryColumns: ColumnDef<Product>[] = [
   {
     accessorKey: "stock",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Stock" />,
-    cell: ({ row }) => <StockIndicator stock={row.original.stock} />,
+    cell: ({ row }) => <StockIndicator product={row.original} />,
   },
   {
     id: "adjust",

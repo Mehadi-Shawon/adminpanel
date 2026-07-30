@@ -14,9 +14,20 @@ type Query = Record<string, string | number | boolean | undefined>
 // raw body when the response isn't the expected shape.
 function extractErrorMessage(status: number, path: string, body: string): string {
   try {
-    const parsed = JSON.parse(body) as { message?: unknown }
+    const parsed = JSON.parse(body) as {
+      message?: unknown
+      data?: { params?: Record<string, unknown> }
+    }
     if (typeof parsed.message === "string" && parsed.message.trim()) {
-      return parsed.message.replace(/<[^>]*>/g, "").trim()
+      const message = parsed.message.replace(/<[^>]*>/g, "").trim()
+      // A rest_invalid_param error's `message` only names the offending
+      // top-level field — "Invalid parameter(s): billing" — while the actual
+      // reason per field sits in data.params ("billing[email] is not of type
+      // email."). Append those so the UI says what's wrong, not just where.
+      const details = Object.values(parsed.data?.params ?? {})
+        .filter((detail): detail is string => typeof detail === "string" && detail.trim() !== "")
+        .map((detail) => detail.replace(/<[^>]*>/g, "").trim())
+      return details.length ? `${message} — ${details.join(" ")}` : message
     }
   } catch {
     // Not JSON — fall through to the raw text.

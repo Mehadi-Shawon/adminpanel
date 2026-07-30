@@ -51,6 +51,11 @@ export interface ProductImage {
 // types — we only support these two.
 export type ProductType = "simple" | "variable"
 
+// WooCommerce's real stock_status values. This is the authoritative signal for
+// whether a product can be bought — independent of stock_quantity, which is
+// null whenever manage_stock is off.
+export type StockStatus = "instock" | "outofstock" | "onbackorder"
+
 // Matches WooCommerce's real product attribute shape. For a variable product
 // each attribute used for variations has `variation: true`; `options` are the
 // possible values (e.g. ["Red", "Blue"]). `id` is 0 for a custom (product-
@@ -78,7 +83,12 @@ export interface Product {
   // regularPrice can be 0 and stock null/0.
   regularPrice: number
   salePrice?: number
+  // Only meaningful when `manageStock` is true — WooCommerce returns a null
+  // stock_quantity for every product with manage_stock off, which is most of
+  // the catalog. Read `stockStatus` to know if something is buyable.
   stock: number
+  manageStock: boolean
+  stockStatus: StockStatus
   attributes: ProductAttribute[]
   status: ProductStatus
   images: ProductImage[]

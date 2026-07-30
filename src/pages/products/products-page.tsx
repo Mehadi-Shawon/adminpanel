@@ -14,9 +14,10 @@ import {
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton"
 import { useProductCategories, useProductsPage } from "@/hooks/use-products"
-import type { Product, ProductStatus } from "@/types"
+import type { Product, ProductStatus, StockStatus } from "@/types"
 import { cn } from "@/lib/utils"
 import { getProductsColumns } from "./components/products-columns"
+import { BACKORDER_LABEL } from "./components/stock-indicator"
 
 const PAGE_SIZE = 20
 
@@ -32,13 +33,14 @@ export function ProductsPage() {
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState<string>("all")
   const [status, setStatus] = useState<ProductStatus | "all">("all")
+  const [stockStatus, setStockStatus] = useState<StockStatus | "all">("all")
   const [pageIndex, setPageIndex] = useState(0)
   const [sorting, setSorting] = useState<SortingState>([])
 
   // Any filter or sort change goes back to the first page.
   useEffect(() => {
     setPageIndex(0)
-  }, [search, categoryId, status, sorting])
+  }, [search, categoryId, status, stockStatus, sorting])
 
   const activeSort = sorting[0]
   const categories = useProductCategories()
@@ -46,6 +48,7 @@ export function ProductsPage() {
     search: search || undefined,
     categoryId: categoryId === "all" ? undefined : Number(categoryId),
     status: status === "all" ? undefined : status,
+    stockStatus: stockStatus === "all" ? undefined : stockStatus,
     page: pageIndex + 1,
     perPage: PAGE_SIZE,
     orderby: activeSort ? SORT_MAP[activeSort.id] : undefined,
@@ -124,6 +127,20 @@ export function ProductsPage() {
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="pending">Pending Review</SelectItem>
                     <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={stockStatus}
+                  onValueChange={(value) => setStockStatus(value as StockStatus | "all")}
+                >
+                  <SelectTrigger className="sm:w-40">
+                    <SelectValue placeholder="Stock" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All stock</SelectItem>
+                    <SelectItem value="instock">In stock</SelectItem>
+                    <SelectItem value="outofstock">Out of stock</SelectItem>
+                    <SelectItem value="onbackorder">{BACKORDER_LABEL}</SelectItem>
                   </SelectContent>
                 </Select>
                 <span className="flex items-center gap-1.5 text-sm text-muted-foreground sm:ml-auto">

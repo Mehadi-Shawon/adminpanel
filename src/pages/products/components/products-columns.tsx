@@ -64,7 +64,7 @@ export function getProductsColumns(onEdit: (product: Product) => void): ColumnDe
     // under server-side pagination.
     enableSorting: false,
     header: "Stock",
-    cell: ({ row }) => <StockIndicator stock={row.original.stock} />,
+    cell: ({ row }) => <StockIndicator product={row.original} />,
   },
   {
     accessorKey: "status",

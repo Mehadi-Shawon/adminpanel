@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,6 @@ type LoginValues = z.infer<typeof loginSchema>
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState(false)
   const [isPending, setIsPending] = useState(false)
@@ -39,8 +38,10 @@ export function LoginPage() {
 
     const success = login(values.email, values.password)
     if (success) {
-      const state = location.state as { from?: { pathname?: string } } | null
-      navigate(state?.from?.pathname ?? "/dashboard", { replace: true })
+      // Always land on the dashboard. Signing in deliberately ignores the page
+      // that bounced you here (RequireAuth's location.state.from) — the
+      // dashboard is the intended entry point for every session.
+      navigate("/dashboard", { replace: true })
     } else {
       setAuthError(true)
       setIsPending(false)

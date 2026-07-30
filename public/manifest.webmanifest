@@ -4,7 +4,7 @@
   "description": "Store administration for Hobinh — orders, products, inventory and customers.",
   "id": "/",
   "scope": "/",
-  "start_url": "/orders",
+  "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",

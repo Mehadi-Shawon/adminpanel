@@ -1,4 +1,12 @@
-import type { Brand, Category, Product, ProductImage, ProductStatus, ProductType } from "@/types"
+import type {
+  Brand,
+  Category,
+  Product,
+  ProductImage,
+  ProductStatus,
+  ProductType,
+  StockStatus,
+} from "@/types"
 import { stripHtml } from "@/lib/format"
 import { wcDelete, wcGet, wcGetList, wcGetPage, wcPost, wcPut, wcUploadMedia } from "./wc-client"
 
@@ -16,6 +24,10 @@ export interface ProductQuery {
   search?: string
   categoryId?: number
   status?: ProductStatus
+  // WooCommerce filters products by stock_status server-side, so this works
+  // correctly alongside pagination (a client-side filter would only ever see
+  // the current page).
+  stockStatus?: StockStatus
 }
 
 // What the form collects for one variation attribute (custom, product-level).
@@ -80,9 +92,15 @@ interface WcProduct {
   regular_price: string
   sale_price: string
   stock_quantity: number | null
+  // Variable products report "parent" here when the variations manage their own
+  // stock, so this is not strictly a boolean.
+  manage_stock: boolean | "parent"
+  stock_status: string
   status: string
   date_created: string
 }
+
+const STOCK_STATUSES: StockStatus[] = ["instock", "outofstock", "onbackorder"]
 
 interface WcVariation {
   id: number
@@ -130,6 +148,13 @@ function mapProduct(wc: WcProduct): Product {
     regularPrice: parseFloat(wc.regular_price) || 0,
     salePrice: wc.sale_price ? parseFloat(wc.sale_price) : undefined,
     stock: wc.stock_quantity ?? 0,
+    // A variable product reports manage_stock as the string "parent" when the
+    // variations track their own stock — only a literal true means the parent
+    // itself has a real quantity.
+    manageStock: wc.manage_stock === true,
+    stockStatus: STOCK_STATUSES.includes(wc.stock_status as StockStatus)
+      ? (wc.stock_status as StockStatus)
+      : "outofstock",
     attributes: (wc.attributes ?? []).map((a) => ({
       id: a.id,
       name: a.name,
@@ -234,6 +259,7 @@ export async function getProducts(params?: ProductQuery): Promise<Product[]> {
     search: params?.search,
     category: params?.categoryId,
     status: params?.status,
+    stock_status: params?.stockStatus,
   })
   return data.map(mapProduct)
 }
@@ -261,6 +287,7 @@ export async function getProductsPage(params: ProductPageQuery): Promise<Product
     search: params.search,
     category: params.categoryId,
     status: params.status,
+    stock_status: params.stockStatus,
     page: params.page,
     per_page: params.perPage,
     orderby: params.orderby,

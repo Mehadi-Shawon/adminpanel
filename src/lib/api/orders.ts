@@ -41,6 +41,22 @@ interface WcOrder {
     meta_data?: Array<{ key: string; display_key?: string; display_value?: string }>
   }>
   fee_lines?: Array<{ name: string; total: string }>
+  // Order-level custom fields. createOrder writes the advance payment details
+  // here; unrelated plugins write their own keys, so always look ours up by name.
+  meta_data?: Array<{ key: string; value: unknown }>
+}
+
+// Order meta keys for the advance payment details. Deliberately human-readable
+// and without a leading underscore, so WooCommerce also lists them in the order
+// screen's "Custom Fields" box rather than hiding them as internal meta.
+const META_TXN_ID = "Advance Transaction ID"
+const META_TXN_NUMBER = "Advance Payment Number"
+
+function readMeta(wc: WcOrder, key: string): string | undefined {
+  const hit = (wc.meta_data ?? []).find((m) => m.key === key)
+  if (hit == null || hit.value == null) return undefined
+  const value = String(hit.value).trim()
+  return value === "" ? undefined : value
 }
 
 function mapOrder(wc: WcOrder): Order {
@@ -93,6 +109,8 @@ function mapOrder(wc: WcOrder): Order {
     subtotal: total - shipping + advancePaid,
     shipping,
     advancePaid,
+    advanceTxnId: readMeta(wc, META_TXN_ID),
+    advanceTxnNumber: readMeta(wc, META_TXN_NUMBER),
     total,
     status: wc.status as OrderStatus,
     shippingAddress,
@@ -153,17 +171,45 @@ export interface CreateOrderInput {
   // negative fee line so WooCommerce subtracts it and the order total becomes
   // what the courier still has to collect on delivery.
   advanceAmount?: number
+  // How that advance arrived: the mobile-banking/bank transaction reference and
+  // the number it was sent from. Stored as order meta so the payment can be
+  // reconciled later. Only meaningful alongside a non-zero advanceAmount.
+  advanceTxnId?: string
+  advanceTxnNumber?: string
+  // Flat delivery charge per the store's policy (see lib/delivery-charge).
+  // Passed in rather than derived here so the created order matches the total
+  // the admin was shown in the preview.
+  deliveryCharge?: number
   status: OrderStatus
   items: CustomOrderItemInput[]
+}
+
+// Drops keys that are undefined or blank. WooCommerce format-validates
+// billing.email, and an empty string fails that check — the whole request comes
+// back as "Invalid parameter(s): billing" when the admin leaves Email empty. An
+// omitted field is simply left unset, which is what a blank input means anyway.
+function withoutBlanks(fields: Record<string, string | undefined>) {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined && value.trim() !== "")
+  )
 }
 
 // Creates a manual order (guest, Cash on Delivery). WooCommerce computes the
 // line/order totals itself from product_id + quantity — we don't send prices.
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   const advance = input.advanceAmount && input.advanceAmount > 0 ? input.advanceAmount : 0
+  const delivery = input.deliveryCharge && input.deliveryCharge > 0 ? input.deliveryCharge : 0
   const noteParts = [input.note?.trim(), input.source ? `Source: ${input.source}` : ""].filter(
     Boolean
   )
+  // Only recorded when an advance was actually taken — a transaction ID with no
+  // payment behind it would just be noise on the order.
+  const advanceMeta = advance
+    ? [
+        { key: META_TXN_ID, value: input.advanceTxnId?.trim() },
+        { key: META_TXN_NUMBER, value: input.advanceTxnNumber?.trim() },
+      ].filter((m): m is { key: string; value: string } => !!m.value)
+    : []
   const wc = await wcPost<WcOrder>("orders", {
     status: input.status,
     customer_id: 0,
@@ -171,22 +217,22 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     payment_method_title: "Cash on Delivery",
     set_paid: false,
     customer_note: noteParts.length ? noteParts.join("\n\n") : undefined,
-    billing: {
+    billing: withoutBlanks({
       first_name: input.firstName,
-      last_name: input.lastName ?? "",
+      last_name: input.lastName,
       phone: input.phone,
-      email: input.email ?? "",
+      email: input.email,
       address_1: input.address,
-      address_2: input.town ?? "",
-      city: input.city ?? "",
-    },
-    shipping: {
+      address_2: input.town,
+      city: input.city,
+    }),
+    shipping: withoutBlanks({
       first_name: input.firstName,
-      last_name: input.lastName ?? "",
+      last_name: input.lastName,
       address_1: input.address,
-      address_2: input.town ?? "",
-      city: input.city ?? "",
-    },
+      address_2: input.town,
+      city: input.city,
+    }),
     line_items: input.items.map((item) => ({
       product_id: item.productId,
       variation_id: item.variationId,
@@ -198,6 +244,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     fee_lines: advance
       ? [{ name: "Advance paid", total: String(-advance), tax_status: "none" }]
       : [],
+    // Free delivery sends no line at all, so shipping_total stays 0 and the
+    // order reads as "Free" everywhere instead of carrying a 0৳ charge line.
+    shipping_lines: delivery
+      ? [{ method_id: "flat_rate", method_title: "Delivery charge", total: String(delivery) }]
+      : [],
+    meta_data: advanceMeta,
   })
   return mapOrder(wc)
 }

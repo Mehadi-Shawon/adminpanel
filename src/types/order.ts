@@ -42,6 +42,11 @@ export interface Order {
   // Money already collected up front, recorded as a negative fee line. Already
   // deducted from `total`, so `subtotal + shipping - advancePaid === total`.
   advancePaid: number
+  // How that advance was paid, captured at Custom Order time and stored as
+  // order meta. Both are absent on orders placed before this was recorded, and
+  // on website orders (which never carry an advance).
+  advanceTxnId?: string
+  advanceTxnNumber?: string
   total: number
   status: OrderStatus
   shippingAddress: ShippingAddress

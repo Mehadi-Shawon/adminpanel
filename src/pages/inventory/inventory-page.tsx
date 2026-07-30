@@ -11,16 +11,28 @@ import {
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton"
 import { useProducts } from "@/hooks/use-products"
+import { BACKORDER_LABEL, LOW_STOCK_THRESHOLD } from "@/pages/products/components/stock-indicator"
 import type { Product } from "@/types"
 import { inventoryColumns } from "./components/inventory-columns"
 
-type StockFilter = "all" | "in-stock" | "low-stock" | "out-of-stock"
+type StockFilter = "all" | "in-stock" | "low-stock" | "out-of-stock" | "on-backorder"
 
+// Buyability comes from WooCommerce's stock_status, not the quantity — most of
+// the catalog has manage_stock off, so stock is 0 for products that sell fine.
+// "Low stock" is the one filter that genuinely needs a number, so it only ever
+// matches products that actually track one.
 function matchesStockFilter(product: Product, filter: StockFilter) {
   if (filter === "all") return true
-  if (filter === "out-of-stock") return product.stock === 0
-  if (filter === "low-stock") return product.stock > 0 && product.stock <= 20
-  return product.stock > 20
+  if (filter === "out-of-stock") return product.stockStatus === "outofstock"
+  if (filter === "on-backorder") return product.stockStatus === "onbackorder"
+  if (filter === "low-stock") {
+    return (
+      product.stockStatus === "instock" &&
+      product.manageStock &&
+      product.stock <= LOW_STOCK_THRESHOLD
+    )
+  }
+  return product.stockStatus === "instock"
 }
 
 export function InventoryPage() {
@@ -68,6 +80,7 @@ export function InventoryPage() {
                   <SelectItem value="in-stock">In stock</SelectItem>
                   <SelectItem value="low-stock">Low stock</SelectItem>
                   <SelectItem value="out-of-stock">Out of stock</SelectItem>
+                  <SelectItem value="on-backorder">{BACKORDER_LABEL}</SelectItem>
                 </SelectContent>
               </Select>
               <span className="flex items-center gap-1.5 text-sm text-muted-foreground sm:ml-auto">

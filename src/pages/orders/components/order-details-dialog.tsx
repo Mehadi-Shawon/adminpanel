@@ -97,6 +97,24 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                         −{formatCurrency(breakdown.advance)}
                       </span>
                     </div>
+                    {/* Only recorded advances carry these — the 10% policy
+                        estimate has no transaction behind it. */}
+                    {breakdown.isRecorded && (order.advanceTxnId || order.advanceTxnNumber) && (
+                      <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                        {order.advanceTxnId && (
+                          <div className="flex justify-between gap-3">
+                            <span>Transaction ID</span>
+                            <span className="truncate font-mono">{order.advanceTxnId}</span>
+                          </div>
+                        )}
+                        {order.advanceTxnNumber && (
+                          <div className="flex justify-between gap-3">
+                            <span>Paid from</span>
+                            <span className="truncate font-mono">{order.advanceTxnNumber}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <Separator className="my-1" />
 

@@ -11,7 +11,9 @@ import {
   NotebookPen,
   Phone,
   Plus,
+  Receipt,
   Share2,
+  Smartphone,
   Sparkles,
   Trash2,
   User,
@@ -34,6 +36,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { useCreateOrder } from "@/hooks/use-orders"
 import { parseOrderText } from "@/lib/parse-order-text"
 import { formatCurrency } from "@/lib/format"
+import { FREE_DELIVERY_THRESHOLD, getDeliveryCharge } from "@/lib/delivery-charge"
 import { ProductPicker, type PickedItem } from "./components/product-picker"
 
 interface LineDraft extends PickedItem {
@@ -78,21 +81,38 @@ export function CustomOrderPage() {
   const [note, setNote] = useState("")
   const [source, setSource] = useState("Facebook")
   const [advance, setAdvance] = useState("")
+  const [advanceTxnId, setAdvanceTxnId] = useState("")
+  const [advanceTxnNumber, setAdvanceTxnNumber] = useState("")
   const [items, setItems] = useState<LineDraft[]>([])
   const [step, setStep] = useState<"form" | "preview">("form")
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  const deliveryCharge = getDeliveryCharge(subtotal)
+  const orderTotal = subtotal + deliveryCharge
+  // How much more this draft needs to qualify for free delivery.
+  const toFreeDelivery = FREE_DELIVERY_THRESHOLD - subtotal
+  // Email is optional, but WooCommerce rejects the whole billing object if a
+  // value is present and isn't a valid address. The input's type="email" never
+  // fires here (placing an order isn't a native form submit), so check it.
+  const emailInvalid = email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   // Kept as a string so the input can be empty; anything unparseable is 0.
   const advanceAmount = Math.max(0, Number.parseFloat(advance) || 0)
   // WooCommerce would happily create a negative-total order, so block it here.
-  const advanceTooLarge = advanceAmount > subtotal
-  const dueOnDelivery = subtotal - advanceAmount
+  const advanceTooLarge = advanceAmount > orderTotal
+  const dueOnDelivery = orderTotal - advanceAmount
+  // The transaction fields only describe an advance, so they're disabled until
+  // there is one — and anything typed before is dropped rather than saved
+  // against an order with no payment on it.
+  const hasAdvance = advanceAmount > 0
+  const txnId = hasAdvance ? advanceTxnId.trim() : ""
+  const txnNumber = hasAdvance ? advanceTxnNumber.trim() : ""
   const canPreview =
     name.trim() !== "" &&
     phone.trim() !== "" &&
     address.trim() !== "" &&
     items.length > 0 &&
-    !advanceTooLarge
+    !advanceTooLarge &&
+    !emailInvalid
 
   function handleExtract() {
     const parsed = parseOrderText(rawText)
@@ -157,6 +177,9 @@ export function CustomOrderPage() {
         note: note.trim() || undefined,
         source: source || undefined,
         advanceAmount: advanceAmount || undefined,
+        advanceTxnId: txnId || undefined,
+        advanceTxnNumber: txnNumber || undefined,
+        deliveryCharge: deliveryCharge || undefined,
         status: "processing",
         items: items.map((i) => ({
           productId: i.productId,
@@ -272,7 +295,13 @@ export function CustomOrderPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      aria-invalid={emailInvalid}
                     />
+                    {emailInvalid && (
+                      <FieldDescription className="text-destructive">
+                        Enter a valid email, or leave it empty.
+                      </FieldDescription>
+                    )}
                   </Field>
                   <Field>
                     <FieldTitle htmlFor="co-source" icon={Share2}>Order source</FieldTitle>
@@ -366,9 +395,25 @@ export function CustomOrderPage() {
                     </div>
                   ))}
                   <Separator className="my-1" />
-                  <div className="flex items-center justify-between pr-9 text-sm font-medium">
+                  <div className="flex items-center justify-between pr-9 text-sm">
                     <span>Subtotal (est.)</span>
                     <span className="font-mono tabular-nums">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between pr-9 text-sm">
+                    <span>Delivery charge</span>
+                    <span className="font-mono tabular-nums">
+                      {deliveryCharge === 0 ? "Free" : formatCurrency(deliveryCharge)}
+                    </span>
+                  </div>
+                  {deliveryCharge > 0 && (
+                    <p className="pr-9 text-xs text-muted-foreground">
+                      {formatCurrency(toFreeDelivery)} more for free delivery.
+                    </p>
+                  )}
+                  <Separator className="my-1" />
+                  <div className="flex items-center justify-between pr-9 text-sm font-medium">
+                    <span>Total (est.)</span>
+                    <span className="font-mono tabular-nums">{formatCurrency(orderTotal)}</span>
                   </div>
                   {advanceAmount > 0 && !advanceTooLarge && (
                     <>
@@ -391,28 +436,62 @@ export function CustomOrderPage() {
               )}
 
               <Separator />
-              <Field>
-                <FieldTitle htmlFor="co-advance" icon={Wallet}>
-                  Advance paid (optional)
-                </FieldTitle>
-                <Input
-                  id="co-advance"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="any"
-                  value={advance}
-                  onChange={(e) => setAdvance(e.target.value)}
-                  placeholder="0"
-                  aria-invalid={advanceTooLarge}
-                  className="sm:max-w-56"
-                />
+              <FieldGroup>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field>
+                    <FieldTitle htmlFor="co-advance" icon={Wallet}>
+                      Advance paid (optional)
+                    </FieldTitle>
+                    <Input
+                      id="co-advance"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="any"
+                      value={advance}
+                      onChange={(e) => setAdvance(e.target.value)}
+                      placeholder="0"
+                      aria-invalid={advanceTooLarge}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldTitle htmlFor="co-txn-id" icon={Receipt}>
+                      Transaction ID
+                    </FieldTitle>
+                    <Input
+                      id="co-txn-id"
+                      value={advanceTxnId}
+                      onChange={(e) => setAdvanceTxnId(e.target.value)}
+                      placeholder="e.g. 9F2K1MZQ7B"
+                      disabled={!hasAdvance}
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldTitle htmlFor="co-txn-number" icon={Smartphone}>
+                      Number
+                    </FieldTitle>
+                    <Input
+                      id="co-txn-number"
+                      type="tel"
+                      inputMode="tel"
+                      value={advanceTxnNumber}
+                      onChange={(e) => setAdvanceTxnNumber(e.target.value)}
+                      placeholder="e.g. 01712345678"
+                      disabled={!hasAdvance}
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
                 <FieldDescription className={advanceTooLarge ? "text-destructive" : undefined}>
                   {advanceTooLarge
-                    ? `Can't be more than the subtotal (${formatCurrency(subtotal)}).`
-                    : "Amount already received (bKash, Nagad, bank). Subtracted from the order — the rest is collected on delivery."}
+                    ? `Can't be more than the order total (${formatCurrency(orderTotal)}).`
+                    : hasAdvance
+                      ? "Amount already received (bKash, Nagad, bank), with the transaction reference and the number it came from. Subtracted from the order — the rest is collected on delivery."
+                      : "Amount already received (bKash, Nagad, bank). Subtracted from the order — the rest is collected on delivery. Enter an amount to record the transaction details."}
                 </FieldDescription>
-              </Field>
+              </FieldGroup>
             </CardContent>
           </Card>
 
@@ -466,11 +545,30 @@ export function CustomOrderPage() {
                 <span>Subtotal (est.)</span>
                 <span className="font-mono tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Delivery charge</span>
+                <span className="font-mono tabular-nums">
+                  {deliveryCharge === 0 ? "Free" : formatCurrency(deliveryCharge)}
+                </span>
+              </div>
               {advanceAmount > 0 && (
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Advance paid</span>
-                  <span className="font-mono tabular-nums">−{formatCurrency(advanceAmount)}</span>
-                </div>
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Total (est.)</span>
+                    <span className="font-mono tabular-nums">{formatCurrency(orderTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Advance paid</span>
+                    <span className="font-mono tabular-nums">−{formatCurrency(advanceAmount)}</span>
+                  </div>
+                  {(txnId || txnNumber) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[txnId && `Txn ID: ${txnId}`, txnNumber && `Number: ${txnNumber}`]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </>
               )}
               <Separator className="my-1.5" />
               <div className="flex items-center justify-between text-sm font-semibold">
